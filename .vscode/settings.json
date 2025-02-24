@@ -1,0 +1,4 @@
+{
+  "workbench.experimental.cloudChanges.autoStore": "onShutdown",
+  "git.autofetch": "all"
+}
