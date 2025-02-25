@@ -1,87 +1,108 @@
 /**
  * @file mnemonic.h
- * @brief Cryptocurrency mnemonic phrase functionality
+ * @brief Functionality for working with BIP-39 and other mnemonic phrases
  *
- * Functionality for validating and processing BIP-39 mnemonic phrases
- * and Monero seed phrases.
+ * This header provides functions for validating and working with mnemonic seed phrases.
  */
 
 #ifndef MNEMONIC_H
 #define MNEMONIC_H
 
-#include <stdbool.h>
 #include <stddef.h>
-
-// Mnemonic types
-#define MNEMONIC_BIP39 1
-#define MNEMONIC_MONERO 2
-
-// Language identifiers
-#define LANGUAGE_ENGLISH 1
-#define LANGUAGE_SPANISH 2
-#define LANGUAGE_MONERO_ENGLISH 3
+#include <stdbool.h>
 
 // Maximum number of words in a mnemonic phrase
-#define MAX_MNEMONIC_WORDS 24
+#define MAX_MNEMONIC_WORDS 25
 
-// Maximum length of a word in a wordlist
-#define MAX_WORD_LENGTH 16
+// Mnemonic types
+typedef enum {
+    MNEMONIC_INVALID = 0,
+    MNEMONIC_BIP39 = 1,
+    MNEMONIC_MONERO = 2
+} MnemonicType;
 
-// Structure to hold wordlist data
+// Supported languages
+typedef enum {
+    LANGUAGE_ENGLISH = 0,
+    LANGUAGE_SPANISH = 1, 
+    LANGUAGE_FRENCH = 2,
+    LANGUAGE_ITALIAN = 3,
+    LANGUAGE_PORTUGUESE = 4,
+    LANGUAGE_CZECH = 5,
+    LANGUAGE_JAPANESE = 6,
+    LANGUAGE_CHINESE_SIMPLIFIED = 7,
+    LANGUAGE_KOREAN = 8,
+    LANGUAGE_CHINESE_TRADITIONAL = 9,
+    LANGUAGE_MONERO_ENGLISH = 10,
+    LANGUAGE_COUNT = 11
+} MnemonicLanguage;
+
+/**
+ * Get human-readable name for a language
+ *
+ * @param language The language ID
+ * @return The language name
+ */
+const char *mnemonic_language_name(MnemonicLanguage language);
+
+/**
+ * Structure for a wordlist
+ */
 typedef struct {
-    char **words;
-    size_t count;
-    int language_id;
+    char **words;                // Array of words
+    size_t word_count;           // Number of words in the list
+    MnemonicLanguage language;   // Language of the wordlist
 } Wordlist;
 
-// Structure for mnemonic context
+/**
+ * Structure for mnemonic context
+ */
 typedef struct {
-    Wordlist **wordlists;
-    size_t wordlist_count;
-    bool initialized;
+    Wordlist **wordlists;        // Array of wordlists
+    size_t wordlist_count;       // Number of loaded wordlists
+    bool initialized;            // Whether the context is initialized
 } MnemonicContext;
 
 /**
- * Initialize the mnemonic context with specified wordlists
- * 
- * @param ctx The mnemonic context to initialize
- * @param wordlist_paths Array of file paths to wordlists
- * @param count Number of wordlists
- * @return true if initialization succeeded, false otherwise
+ * Initialize the mnemonic subsystem
+ *
+ * @return 0 on success, non-zero on failure
  */
-bool mnemonic_init(MnemonicContext *ctx, const char **wordlist_paths, size_t count);
+int mnemonic_init(void);
 
 /**
  * Load a wordlist from a file
- * 
- * @param filename Path to the wordlist file
- * @param language_id Identifier for the language
- * @return Pointer to the loaded wordlist, or NULL on failure
+ *
+ * @param language The language of the wordlist
+ * @return 0 on success, non-zero on failure
  */
-Wordlist *mnemonic_load_wordlist(const char *filename, int language_id);
+int mnemonic_load_wordlist(MnemonicLanguage language);
 
 /**
- * Validate a mnemonic phrase against loaded wordlists
- * 
- * @param ctx The mnemonic context
+ * Validate a mnemonic phrase
+ *
  * @param phrase The mnemonic phrase to validate
- * @param mnemonic_type Type of mnemonic (BIP-39 or Monero)
- * @return true if the mnemonic is valid, false otherwise
+ * @param type Output parameter to store the detected type
+ * @param language Output parameter to store the detected language (can be NULL)
+ * @return true if valid, false otherwise
  */
-bool mnemonic_validate(MnemonicContext *ctx, const char *phrase, int mnemonic_type);
+bool mnemonic_validate(const char *phrase, MnemonicType *type, MnemonicLanguage *language);
 
 /**
- * Clean up and free resources used by the mnemonic context
- * 
- * @param ctx The mnemonic context to clean up
+ * Clean up the mnemonic subsystem
  */
-void mnemonic_cleanup(MnemonicContext *ctx);
+void mnemonic_cleanup(void);
 
 /**
- * Free a loaded wordlist
- * 
- * @param wordlist The wordlist to free
+ * Convert a mnemonic phrase to a binary seed
+ *
+ * @param phrase The mnemonic phrase
+ * @param passphrase Optional passphrase (can be NULL)
+ * @param seed Output buffer for the seed
+ * @param seed_len Size of the output buffer
+ * @return Actual length of the seed in bytes, or 0 on failure
  */
-void mnemonic_free_wordlist(Wordlist *wordlist);
+size_t mnemonic_to_seed(const char *phrase, const char *passphrase, 
+                       unsigned char *seed, size_t seed_len);
 
 #endif /* MNEMONIC_H */ 

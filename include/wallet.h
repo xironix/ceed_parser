@@ -22,9 +22,11 @@
 #define MAX_PRIVATE_KEY_LENGTH 128
 
 // Wallet types
-#define WALLET_TYPE_BITCOIN   1
-#define WALLET_TYPE_ETHEREUM  2
-#define WALLET_TYPE_MONERO    3
+typedef enum {
+    WALLET_TYPE_BITCOIN   = 1,
+    WALLET_TYPE_ETHEREUM  = 2,
+    WALLET_TYPE_MONERO    = 3
+} WalletType;
 
 // Structure to hold wallet information
 typedef struct {
@@ -37,6 +39,18 @@ typedef struct {
     char private_keys[MAX_WALLET_ADDRESSES][MAX_PRIVATE_KEY_LENGTH]; // Private keys (if stored)
     bool has_private_keys;                         // Whether private keys are stored
 } Wallet;
+
+/**
+ * Initialize the wallet system
+ * 
+ * @return 0 on success, non-zero on failure
+ */
+int wallet_init(void);
+
+/**
+ * Cleanup the wallet system
+ */
+void wallet_cleanup(void);
 
 /**
  * Generate a wallet from a seed phrase

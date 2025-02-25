@@ -329,26 +329,26 @@ bool parse_args(int argc, char **argv) {
 void print_config(void) {
     printf("Configuration:\n");
     printf("  Output File: %s\n", g_config.output_file);
-    printf("  Thread Count: %d\n", g_config.thread_count);
+    printf("  Thread Count: %zu\n", g_config.thread_count);
     printf("  Recursive Mode: %s\n", g_config.recursive ? "Enabled" : "Disabled");
     printf("  Monero Detection: %s\n", g_config.detect_monero ? "Enabled" : "Disabled");
     printf("  Fast Mode: %s\n", g_config.fast_mode ? "Enabled" : "Disabled");
     printf("  Database: %s\n", g_config.use_database ? g_config.db_file : "Disabled");
-    printf("  Max Wallets: %d\n", g_config.max_wallets);
+    printf("  Max Wallets: %zu\n", g_config.max_wallets);
     
     printf("  Languages:");
-    for (int i = 0; i < g_config.language_count; i++) {
+    for (size_t i = 0; i < g_config.language_count; i++) {
         const char *lang_name = "Unknown";
         
         switch (g_config.languages[i]) {
             case LANGUAGE_ENGLISH:
                 lang_name = "English";
                 break;
-            case LANGUAGE_FRENCH:
-                lang_name = "French";
-                break;
             case LANGUAGE_SPANISH:
                 lang_name = "Spanish";
+                break;
+            case LANGUAGE_FRENCH:
+                lang_name = "French";
                 break;
             case LANGUAGE_ITALIAN:
                 lang_name = "Italian";
@@ -371,6 +371,12 @@ void print_config(void) {
             case LANGUAGE_KOREAN:
                 lang_name = "Korean";
                 break;
+            case LANGUAGE_MONERO_ENGLISH:
+                lang_name = "Monero";
+                break;
+            case LANGUAGE_COUNT:
+                lang_name = "Unknown";
+                break;
         }
         
         printf(" %s%s", lang_name, i < g_config.language_count - 1 ? "," : "");
@@ -378,13 +384,13 @@ void print_config(void) {
     printf("\n");
     
     printf("  Word Chain Sizes:");
-    for (int i = 0; i < g_config.word_chain_count; i++) {
+    for (size_t i = 0; i < g_config.word_chain_count; i++) {
         printf(" %zu%s", g_config.word_chain_sizes[i], i < g_config.word_chain_count - 1 ? "," : "");
     }
     printf("\n");
     
     printf("  Paths to Scan:\n");
-    for (int i = 0; i < g_config.path_count; i++) {
+    for (size_t i = 0; i < g_config.path_count; i++) {
         printf("    %s\n", g_config.paths[i]);
     }
     printf("\n");
@@ -399,10 +405,10 @@ void print_stats(void) {
     printf("  Files Skipped: %lu\n", g_stats.files_skipped);
     printf("  Total Lines Processed: %lu\n", g_stats.lines_processed);
     printf("  Total Bytes Processed: %lu\n", g_stats.bytes_processed);
-    printf("  BIP-39 Phrases Found: %lu\n", g_stats.bip39_phrases_found);
+    printf("  BIP-39 Phrases Found: %llu\n", g_stats.bip39_phrases_found);
     
     if (g_config.detect_monero) {
-        printf("  Monero Phrases Found: %lu\n", g_stats.monero_phrases_found);
+        printf("  Monero Phrases Found: %llu\n", g_stats.monero_phrases_found);
     }
     
     printf("  Elapsed Time: %.2f seconds\n", g_stats.elapsed_time);
@@ -469,7 +475,7 @@ void seed_found_callback(const char *file_path,
         case LANGUAGE_KOREAN:
             lang_str = "Korean";
             break;
-        case LANGUAGE_MONERO:
+        case LANGUAGE_MONERO_ENGLISH:
             lang_str = "Monero";
             break;
     }
@@ -512,7 +518,7 @@ int main(int argc, char **argv) {
     }
     
     /* Load wordlists */
-    for (int i = 0; i < g_config.language_count; i++) {
+    for (size_t i = 0; i < g_config.language_count; i++) {
         if (mnemonic_load_wordlist(g_config.languages[i]) != 0) {
             fprintf(stderr, "Error: Failed to load wordlist for language %d\n", 
                     g_config.languages[i]);
