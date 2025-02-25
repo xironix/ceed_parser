@@ -17,6 +17,14 @@
 #include "mnemonic.h"
 #include "wallet.h"
 
+#ifdef USE_OPTIMIZED_PARSER
+#include "seed_parser_optimized.h"
+#include "cache.h"
+#include "memory_pool.h"
+#include "thread_pool.h"
+#include "simd_utils.h"
+#endif
+
 /**
  * @brief Default output file for found seed phrases
  */
@@ -79,6 +87,11 @@ void print_usage(const char *program_name) {
     printf("  -r, --recursive             Recursively scan directories\n");
     printf("  -f, --fast                  Fast mode (less validation, more speed)\n");
     printf("  -d, --database FILE         SQLite database file for results\n");
+#ifdef USE_OPTIMIZED_PARSER
+    printf("  -p, --performance           Show performance statistics\n");
+    printf("  -c, --cpu-info              Show CPU and SIMD capabilities\n");
+    printf("  -T, --threads NUM           Set number of threads (0 = auto)\n");
+#endif
     printf("\n");
     printf("If no paths are specified, the current directory will be scanned.\n");
 }
@@ -98,6 +111,11 @@ bool parse_args(int argc, char **argv) {
         {"recursive", no_argument,       NULL, 'r'},
         {"fast",      no_argument,       NULL, 'f'},
         {"database",  required_argument, NULL, 'd'},
+#ifdef USE_OPTIMIZED_PARSER
+        {"performance", no_argument,   NULL, 'p'},
+        {"cpu-info",    no_argument,   NULL, 'c'},
+        {"threads",     required_argument, NULL, 'T'},
+#endif
         {NULL,        0,                 NULL,  0 }
     };
 
@@ -181,6 +199,24 @@ bool parse_args(int argc, char **argv) {
             case 'd':
                 db_file = optarg;
                 break;
+                
+#ifdef USE_OPTIMIZED_PARSER
+            case 'p':
+                g_config.show_performance = true;
+                break;
+                
+            case 'c':
+                g_config.show_cpu_info = true;
+                break;
+                
+            case 'T':
+                g_config.threads = atoi(optarg);
+                if (g_config.threads < 0) {
+                    fprintf(stderr, "Error: Invalid thread count: %s\n", optarg);
+                    return false;
+                }
+                break;
+#endif
                 
             case '?':
                 return false;

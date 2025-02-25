@@ -10,38 +10,51 @@
 #define SEED_PARSER_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <time.h>
 #include "mnemonic.h"
 
 /**
  * @brief Configuration parameters for the seed parser
  */
 typedef struct {
-    const char *source_dir;         /**< Source directory to scan */
-    const char *log_dir;            /**< Directory for log files */
-    const char *db_path;            /**< Path to the SQLite database */
+    const char **input_paths;       /**< Array of paths to scan */
+    size_t input_path_count;        /**< Number of paths in the array */
+    const char **wordlist_paths;    /**< Array of wordlist paths */
+    size_t wordlist_count;          /**< Number of wordlists */
+    int thread_count;               /**< Number of threads to use */
+    bool recursive;                 /**< Whether to scan directories recursively */
+    char output_file[256];          /**< Path to output file */
+    char db_file[256];              /**< Path to database file */
+    bool fast_mode;                 /**< Fast mode (fewer wallet types) */
+    int max_wallets;                /**< Maximum wallets to generate per seed */
+    size_t word_chain_count;        /**< Number of consecutive words required */
+    size_t language_count;          /**< Number of languages supported */
+    bool show_performance;          /**< Show performance statistics */
+    bool show_cpu_info;             /**< Show CPU information */
+    
+    /* Original fields */
     int threads;                    /**< Number of threads to use for processing */
     bool parse_eth;                 /**< Whether to parse Ethereum private keys */
     size_t chunk_size;              /**< File chunk size for reading */
     int exwords;                    /**< Maximum word repetition allowed in a phrase */
     const char *wordlist_dir;       /**< Directory with BIP39 wordlists */
-    MnemonicLanguage languages[LANGUAGE_COUNT]; /**< Languages to enable (terminated with LANGUAGE_COUNT) */
     bool detect_monero;             /**< Whether to detect Monero seed phrases */
-    size_t word_chain_sizes[10];    /**< Word chain sizes to look for (terminated with 0) */
 } SeedParserConfig;
 
 /**
  * @brief Statistics collected during parsing
  */
 typedef struct {
-    uint64_t files_processed;        /**< Number of files processed */
-    uint64_t bytes_processed;        /**< Number of bytes processed */
-    uint64_t phrases_found;          /**< Number of seed phrases found */
-    uint64_t eth_keys_found;         /**< Number of Ethereum private keys found */
-    uint64_t monero_phrases_found;   /**< Number of Monero seed phrases found */
-    uint64_t errors;                 /**< Number of errors encountered */
+    size_t files_processed;         /**< Number of files processed */
+    size_t files_skipped;           /**< Number of files skipped */
+    size_t seeds_found;             /**< Number of seed phrases found */
+    size_t wallets_generated;       /**< Number of wallets generated */
+    double processing_time;         /**< Total processing time in seconds */
+    time_t start_time;              /**< Start time of processing */
+    time_t end_time;                /**< End time of processing */
 } SeedParserStats;
 
 /**
@@ -55,47 +68,75 @@ int seed_parser_config_init(SeedParserConfig *config);
 /**
  * @brief Initialize the seed parser
  * 
- * @param config Configuration parameters
- * @return 0 on success, non-zero on failure
+ * @param config Configuration for the parser
+ * @param stats Pointer to stats structure (or NULL)
+ * @return true on success, false on failure
  */
-int seed_parser_init(const SeedParserConfig *config);
+bool seed_parser_init(const SeedParserConfig *config, SeedParserStats *stats);
 
 /**
- * @brief Start scanning for seed phrases
+ * @brief Start the parsing process
  * 
- * @return 0 on success, non-zero on failure
+ * @return true on success, false on failure
  */
-int seed_parser_start(void);
+bool seed_parser_start(void);
 
 /**
- * @brief Clean up resources used by the seed parser
+ * @brief Stop the parsing process
+ * 
+ * @return true on success, false on failure
+ */
+bool seed_parser_stop(void);
+
+/**
+ * @brief Clean up resources used by the parser
  */
 void seed_parser_cleanup(void);
 
 /**
- * @brief Get current statistics
- * 
- * @param stats Pointer to statistics struct to fill
- */
-void seed_parser_get_stats(SeedParserStats *stats);
-
-/**
  * @brief Validate a mnemonic phrase
  * 
- * @param mnemonic The mnemonic phrase to validate
+ * @param phrase The mnemonic phrase to validate
  * @param type Pointer to store the detected mnemonic type
- * @param language Pointer to store the detected language (can be NULL)
  * @return true if valid, false otherwise
  */
-bool seed_parser_validate_mnemonic(const char *mnemonic, MnemonicType *type, MnemonicLanguage *language);
+bool seed_parser_validate_mnemonic(const char *phrase, int *type);
 
 /**
- * @brief Process a file looking for seed phrases
+ * @brief Generate wallets from a valid mnemonic
  * 
- * @param filepath Path to the file to process
- * @return 0 on success, non-zero on failure
+ * @param phrase The validated mnemonic phrase
+ * @param type The mnemonic type
+ * @param max_wallets Maximum number of wallets to generate
+ * @param fast_mode Whether to use fast mode (fewer wallet types)
+ * @return true on success, false on failure
  */
-int seed_parser_process_file(const char *filepath);
+bool seed_parser_generate_wallets(const char *phrase, int type, int max_wallets, bool fast_mode);
+
+/**
+ * @brief Process a single file
+ * 
+ * @param filepath Path to the file
+ * @return true on success, false on failure
+ */
+bool seed_parser_process_file(const char *filepath);
+
+/**
+ * @brief Process a directory
+ * 
+ * @param dirpath Path to the directory
+ * @param recursive Whether to process subdirectories
+ * @return true on success, false on failure
+ */
+bool seed_parser_process_directory(const char *dirpath, bool recursive);
+
+/**
+ * @brief Print statistics
+ * 
+ * @param stats The statistics structure
+ * @param file File to print to (stdout if NULL)
+ */
+void seed_parser_print_stats(const SeedParserStats *stats, FILE *file);
 
 /**
  * @brief Handle SIGINT for graceful shutdown

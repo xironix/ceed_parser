@@ -1,10 +1,9 @@
 /**
  * @file memory_pool.h
- * @brief High-performance thread-local memory pool/allocator
+ * @brief High-performance thread-local memory pool
  *
  * This file provides a thread-local memory pool implementation
- * that significantly reduces the overhead of frequent allocations
- * and deallocations, especially for small objects.
+ * for high-performance memory allocation and deallocation.
  */
 
 #ifndef MEMORY_POOL_H
@@ -13,91 +12,92 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <pthread.h>
 
-// Disable memory pool implementation for debugging 
-// #define DISABLE_MEMORY_POOL
+// Default block size for the memory pool (64KB)
+#define DEFAULT_BLOCK_SIZE (64 * 1024)
 
-#ifndef DISABLE_MEMORY_POOL
+// Default maximum number of blocks
+#define DEFAULT_MAX_BLOCKS 256
 
-/**
- * Default values for memory pool configuration
- */
-#define DEFAULT_BLOCK_SIZE       (4 * 1024)      // 4KB blocks
-#define DEFAULT_MAX_BLOCKS       1024            // Maximum blocks per pool
-#define DEFAULT_SMALL_SIZE       128             // Max size for small object pool
-#define DEFAULT_SMALL_CAPACITY   1024            // Capacity of small object pool
-#define ALIGNMENT                16              // Memory alignment
+// Default small object size threshold
+#define DEFAULT_SMALL_SIZE 256
 
-/**
- * Memory block structure
- */
+// Default small object capacity per block
+#define DEFAULT_SMALL_CAPACITY 1024
+
+// Forward declaration
+typedef struct memory_pool memory_pool_t;
+
+// Memory block structure
 typedef struct memory_block {
-    size_t size;                     // Block size
-    size_t used;                     // Used bytes
-    struct memory_block* next;       // Next block
-    char data[];                     // Block data (flexible array)
+    char* memory;                       // Allocated memory
+    size_t size;                        // Size of allocated memory
+    size_t used;                        // Amount of used memory
+    struct memory_block* next;          // Next block in the list
 } memory_block_t;
 
-/**
- * Pre-sized block for small allocations (fewer than 128 bytes)
- */
+// Small memory block structure
 typedef struct small_block {
-    bool used;                       // Whether the block is in use
-    char data[DEFAULT_SMALL_SIZE];   // Block data
+    char* memory;                       // Allocated memory
+    size_t object_size;                 // Size of each object
+    size_t capacity;                    // Maximum number of objects
+    size_t used;                        // Number of used objects
+    uint8_t* bitmap;                    // Bitmap of used objects
+    struct small_block* next;           // Next small block
 } small_block_t;
 
-/**
- * Memory pool structure
- */
-typedef struct memory_pool {
-    size_t block_size;               // Size of each block
-    size_t max_blocks;               // Maximum number of blocks
-    size_t block_count;              // Current number of blocks
-    size_t total_allocated;          // Total allocated memory
-    size_t max_allocated;            // Maximum memory ever allocated
-    
-    memory_block_t* current_block;   // Current block for allocations
-    memory_block_t* blocks;          // List of blocks
-    
-    // Pool of pre-sized blocks for small allocations
-    small_block_t* small_blocks;     // Array of small blocks
-    size_t small_capacity;           // Capacity of small blocks array
-    size_t small_used;               // Number of used small blocks
-    
-    // Thread-local storage key
-    pthread_key_t tls_key;
-    
-    // Performance statistics
-    size_t num_allocs;               // Number of allocations
-    size_t num_frees;                // Number of frees
-    size_t cache_misses;             // Number of cache misses
-} memory_pool_t;
+// Memory pool structure
+struct memory_pool {
+    memory_block_t* blocks;             // List of memory blocks
+    small_block_t* small_blocks;        // List of small memory blocks
+    size_t block_size;                  // Size of each memory block
+    size_t max_blocks;                  // Maximum number of blocks
+    size_t small_size;                  // Maximum size for small objects
+    size_t small_capacity;              // Number of small objects per block
+    size_t total_allocated;             // Total memory allocated
+    size_t total_used;                  // Total memory used
+    size_t block_count;                 // Number of blocks
+    size_t small_block_count;           // Number of small blocks
+    size_t allocations;                 // Number of allocations
+    size_t small_allocations;           // Number of small allocations
+    size_t cache_misses;                // Number of cache misses
+    size_t wasted;                      // Amount of wasted memory
+    bool enable_stats;                  // Enable statistics
+};
+
+// Memory pool statistics structure
+typedef struct {
+    size_t total_allocated;             // Total memory allocated
+    size_t total_used;                  // Total memory used
+    size_t block_size;                  // Size of each memory block
+    size_t block_count;                 // Number of blocks
+    size_t small_block_count;           // Number of small blocks
+    size_t allocations;                 // Number of allocations
+    size_t small_allocations;           // Number of small allocations
+    size_t cache_misses;                // Number of cache misses
+    size_t wasted;                      // Amount of wasted memory
+    double fragmentation;               // Fragmentation ratio
+    double efficiency;                  // Memory efficiency ratio
+} memory_pool_stats_t;
 
 /**
- * @brief Initialize a memory pool
+ * @brief Create a memory pool
  * 
- * @param pool Memory pool to initialize
- * @param block_size Size of each block
+ * @param block_size Size of each memory block
  * @param max_blocks Maximum number of blocks
- * @param small_capacity Capacity of small object pool
- * @return true if successful
+ * @return Pointer to the created memory pool, or NULL on failure
  */
-bool memory_pool_init(memory_pool_t* pool, size_t block_size, size_t max_blocks, size_t small_capacity);
+memory_pool_t* memory_pool_create(size_t block_size, size_t max_blocks);
 
 /**
- * @brief Destroy a memory pool and free all memory
+ * @brief Destroy a memory pool
  * 
  * @param pool Memory pool to destroy
  */
 void memory_pool_destroy(memory_pool_t* pool);
 
 /**
- * @brief Reset a memory pool, keeping allocated blocks
- * 
- * This function resets the memory pool to its initial state,
- * but keeps the allocated blocks for reuse. This is faster
- * than destroying and recreating the pool.
+ * @brief Reset a memory pool
  * 
  * @param pool Memory pool to reset
  */
@@ -107,108 +107,91 @@ void memory_pool_reset(memory_pool_t* pool);
  * @brief Allocate memory from a memory pool
  * 
  * @param pool Memory pool to allocate from
- * @param size Size to allocate
- * @return Pointer to allocated memory, or NULL on failure
+ * @param size Size of memory to allocate
+ * @return Pointer to the allocated memory, or NULL on failure
  */
-void* memory_pool_alloc(memory_pool_t* pool, size_t size);
+void* memory_pool_malloc(memory_pool_t* pool, size_t size);
 
 /**
  * @brief Allocate aligned memory from a memory pool
  * 
  * @param pool Memory pool to allocate from
- * @param size Size to allocate
- * @param alignment Alignment boundary
- * @return Pointer to allocated memory, or NULL on failure
+ * @param size Size of memory to allocate
+ * @param alignment Alignment of memory
+ * @return Pointer to the allocated memory, or NULL on failure
  */
-void* memory_pool_aligned_alloc(memory_pool_t* pool, size_t size, size_t alignment);
+void* memory_pool_aligned_malloc(memory_pool_t* pool, size_t size, size_t alignment);
+
+/**
+ * @brief Allocate and zero-initialize memory from a memory pool
+ * 
+ * @param pool Memory pool to allocate from
+ * @param nmemb Number of elements
+ * @param size Size of each element
+ * @return Pointer to the allocated memory, or NULL on failure
+ */
+void* memory_pool_calloc(memory_pool_t* pool, size_t nmemb, size_t size);
+
+/**
+ * @brief Duplicate a string using memory from a memory pool
+ * 
+ * @param pool Memory pool to allocate from
+ * @param str String to duplicate
+ * @return Pointer to the duplicated string, or NULL on failure
+ */
+char* memory_pool_strdup(memory_pool_t* pool, const char* str);
 
 /**
  * @brief Free memory allocated from a memory pool
  * 
- * Note: This only truly frees memory for large allocations.
- * Small allocations are returned to the pool for reuse.
- * 
- * @param pool Memory pool the memory was allocated from
- * @param ptr Pointer to memory to free
+ * @param pool Memory pool to free from
+ * @param ptr Pointer to the memory to free
  */
 void memory_pool_free(memory_pool_t* pool, void* ptr);
 
 /**
- * @brief Allocate memory from the thread-local memory pool
+ * @brief Get statistics for a memory pool
  * 
- * @param size Size to allocate
- * @return Pointer to allocated memory, or NULL on failure
+ * @param pool Memory pool to get statistics for
+ * @param stats Pointer to a memory_pool_stats_t structure to fill
  */
-void* tls_pool_alloc(size_t size);
+void memory_pool_get_stats(memory_pool_t* pool, memory_pool_stats_t* stats);
 
 /**
- * @brief Free memory allocated from the thread-local memory pool
+ * @brief Get the thread-local memory pool
  * 
- * @param ptr Pointer to memory to free
- */
-void tls_pool_free(void* ptr);
-
-/**
- * @brief Initialize the thread-local memory pool for the current thread
- */
-void tls_pool_init_thread(void);
-
-/**
- * @brief Clean up the thread-local memory pool for the current thread
- */
-void tls_pool_cleanup_thread(void);
-
-/**
- * @brief Initialize the global thread-local memory pool system
+ * This function returns the thread-local memory pool for the current thread.
+ * If the pool doesn't exist, it creates a new one.
  * 
- * @return true if successful
+ * @return Pointer to the thread-local memory pool
  */
-bool tls_pool_init(void);
+memory_pool_t* memory_pool_get_thread_local(void);
 
 /**
- * @brief Destroy the global thread-local memory pool system
- */
-void tls_pool_destroy(void);
-
-/**
- * @brief Get statistics about the thread-local memory pool
+ * @brief Set the thread-local memory pool
  * 
- * @param total_allocated Pointer to store total allocated memory
- * @param max_allocated Pointer to store maximum allocated memory
- * @param num_allocs Pointer to store number of allocations
- * @param num_frees Pointer to store number of frees
- * @param cache_misses Pointer to store number of cache misses
+ * @param pool Memory pool to set as the thread-local pool
  */
-void tls_pool_get_stats(size_t* total_allocated, size_t* max_allocated,
-                        size_t* num_allocs, size_t* num_frees,
-                        size_t* cache_misses);
+void memory_pool_set_thread_local(memory_pool_t* pool);
 
 /**
- * Wrapper macros for standard memory functions
+ * @brief Destroy the thread-local memory pool
  */
-#define fast_malloc(size)              tls_pool_alloc(size)
-#define fast_free(ptr)                 tls_pool_free(ptr)
-#define fast_calloc(count, size)       memset(tls_pool_alloc((count) * (size)), 0, (count) * (size))
-#define fast_realloc(ptr, size)        realloc(ptr, size)  // Falls back to standard realloc
-#define fast_strdup(str)               strcpy(tls_pool_alloc(strlen(str) + 1), str)
+void memory_pool_destroy_thread_local(void);
 
-#else  // DISABLE_MEMORY_POOL
+// Macros for using the thread-local memory pool
+#ifdef MEMORY_POOL_ENABLE_THREAD_LOCAL
+    #define mp_malloc(size) memory_pool_malloc(memory_pool_get_thread_local(), size)
+    #define mp_aligned_malloc(size, alignment) memory_pool_aligned_malloc(memory_pool_get_thread_local(), size, alignment)
+    #define mp_calloc(nmemb, size) memory_pool_calloc(memory_pool_get_thread_local(), nmemb, size)
+    #define mp_strdup(str) memory_pool_strdup(memory_pool_get_thread_local(), str)
+    #define mp_free(ptr) memory_pool_free(memory_pool_get_thread_local(), ptr)
+#else
+    #define mp_malloc(size) malloc(size)
+    #define mp_aligned_malloc(size, alignment) aligned_alloc(alignment, size)
+    #define mp_calloc(nmemb, size) calloc(nmemb, size)
+    #define mp_strdup(str) strdup(str)
+    #define mp_free(ptr) free(ptr)
+#endif
 
-/**
- * If memory pool is disabled, use standard memory functions
- */
-#define fast_malloc(size)              malloc(size)
-#define fast_free(ptr)                 free(ptr)
-#define fast_calloc(count, size)       calloc(count, size)
-#define fast_realloc(ptr, size)        realloc(ptr, size)
-#define fast_strdup(str)               strdup(str)
-
-#define tls_pool_init()                true
-#define tls_pool_destroy()             ((void)0)
-#define tls_pool_init_thread()         ((void)0)
-#define tls_pool_cleanup_thread()      ((void)0)
-#define tls_pool_get_stats(a,b,c,d,e)  ((void)0)
-
-#endif  // DISABLE_MEMORY_POOL
-
-#endif  // MEMORY_POOL_H 
+#endif // MEMORY_POOL_H 

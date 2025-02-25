@@ -8,134 +8,77 @@
 #ifndef WALLET_H
 #define WALLET_H
 
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdbool.h>
 
-/**
- * @brief Maximum length of an address
- */
-#define MAX_ADDRESS_LENGTH 128
+// Maximum wallet addresses to generate per seed
+#define MAX_WALLET_ADDRESSES 10
 
-/**
- * @brief Maximum length of a private key
- */
-#define MAX_PRIVKEY_LENGTH 128
+// Maximum length of a cryptocurrency address
+#define MAX_ADDRESS_LENGTH 108  // Monero addresses can be long
 
-/**
- * @brief Supported cryptocurrency types
- */
-typedef enum {
-    CRYPTO_BTC,    /**< Bitcoin */
-    CRYPTO_ETH,    /**< Ethereum */
-    CRYPTO_LTC,    /**< Litecoin */
-    CRYPTO_BCH,    /**< Bitcoin Cash */
-    CRYPTO_BSV,    /**< Bitcoin SV */
-    CRYPTO_BNB,    /**< Binance Chain */
-    CRYPTO_DOGE,   /**< Dogecoin */
-    CRYPTO_DASH,   /**< Dash */
-    CRYPTO_ZEC,    /**< Zcash */
-    CRYPTO_TRX,    /**< Tron */
-    CRYPTO_ETC,    /**< Ethereum Classic */
-    CRYPTO_XMR     /**< Monero */
-} CryptoType;
+// Maximum length of a private key in hex format
+#define MAX_PRIVATE_KEY_LENGTH 128
 
-/**
- * @brief Address types for different cryptocurrencies
- */
-typedef enum {
-    ADDRESS_P2PKH,    /**< Pay to Public Key Hash (Legacy) */
-    ADDRESS_P2SH,     /**< Pay to Script Hash (Compatible SegWit) */
-    ADDRESS_P2WPKH,   /**< Pay to Witness Public Key Hash (Native SegWit) */
-    ADDRESS_STANDARD, /**< Standard address format (e.g., for ETH, XMR) */
-    ADDRESS_SUBADDRESS /**< Subaddress (e.g., for Monero) */
-} AddressType;
+// Wallet types
+#define WALLET_TYPE_BITCOIN   1
+#define WALLET_TYPE_ETHEREUM  2
+#define WALLET_TYPE_MONERO    3
 
-/**
- * @brief A generated wallet address
- */
+// Structure to hold wallet information
 typedef struct {
-    char address[MAX_ADDRESS_LENGTH];     /**< Public address */
-    char private_key[MAX_PRIVKEY_LENGTH]; /**< Private key */
-    char path[128];                        /**< Derivation path */
-    CryptoType type;                       /**< Crypto type */
-    AddressType address_type;              /**< Address type */
+    int type;                                      // Type of wallet (Bitcoin, Ethereum, Monero)
+    char seed_phrase[1024];                        // Original seed phrase
+    uint8_t seed[64];                              // Binary seed data
+    size_t seed_length;                            // Length of the seed data
+    char addresses[MAX_WALLET_ADDRESSES][MAX_ADDRESS_LENGTH]; // Generated addresses
+    int address_count;                             // Number of addresses generated
+    char private_keys[MAX_WALLET_ADDRESSES][MAX_PRIVATE_KEY_LENGTH]; // Private keys (if stored)
+    bool has_private_keys;                         // Whether private keys are stored
 } Wallet;
 
 /**
- * @brief Initialize the wallet module
+ * Generate a wallet from a seed phrase
  * 
- * @return 0 on success, non-zero on failure
+ * @param seed_phrase The seed phrase (mnemonic)
+ * @param wallet_type Type of wallet to generate (WALLET_TYPE_*)
+ * @param passphrase Optional passphrase (can be NULL)
+ * @param wallet Pointer to wallet structure to store the results
+ * @return true if wallet generation succeeded, false otherwise
  */
-int wallet_init(void);
+bool wallet_generate_from_seed(const char *seed_phrase, int wallet_type, 
+                               const char *passphrase, Wallet *wallet);
 
 /**
- * @brief Clean up resources used by wallet module
+ * Generate multiple wallets from a seed phrase
+ * 
+ * @param seed_phrase The seed phrase (mnemonic)
+ * @param wallet_types Array of wallet types to generate
+ * @param wallet_count Number of wallet types in the array
+ * @param passphrase Optional passphrase (can be NULL)
+ * @param wallets Array of wallet structures to store the results
+ * @return Number of successfully generated wallets
  */
-void wallet_cleanup(void);
+int wallet_generate_multiple(const char *seed_phrase, const int *wallet_types, 
+                             size_t wallet_count, const char *passphrase, 
+                             Wallet *wallets);
 
 /**
- * @brief Generate a crypto wallet from a mnemonic phrase
+ * Validate a cryptocurrency address
  * 
- * @param mnemonic The BIP39 mnemonic phrase
- * @param type Cryptocurrency type
- * @param path Derivation path
- * @param wallet Pointer to Wallet struct to fill
- * @return 0 on success, non-zero on failure
+ * @param address The address to validate
+ * @param wallet_type Type of wallet/address
+ * @return true if the address is valid, false otherwise
  */
-int wallet_from_mnemonic(const char *mnemonic, CryptoType type, const char *path, Wallet *wallet);
+bool wallet_validate_address(const char *address, int wallet_type);
 
 /**
- * @brief Generate a Monero wallet from a 25-word seed phrase
+ * Get human-readable name for wallet type
  * 
- * @param mnemonic The Monero 25-word seed phrase
- * @param wallet Pointer to Wallet struct to fill
- * @return 0 on success, non-zero on failure
+ * @param wallet_type The wallet type
+ * @return String with wallet type name
  */
-int wallet_monero_from_mnemonic(const char *mnemonic, Wallet *wallet);
-
-/**
- * @brief Generate Monero subaddresses from a primary address
- * 
- * @param primary_wallet Primary Monero wallet
- * @param subaddresses Array of Wallet structs to fill with subaddresses
- * @param max_count Maximum number of subaddresses to generate
- * @param actual_count Pointer to store the actual number generated
- * @return 0 on success, non-zero on failure
- */
-int wallet_monero_generate_subaddresses(const Wallet *primary_wallet, 
-                                       Wallet *subaddresses, 
-                                       size_t max_count, 
-                                       size_t *actual_count);
-
-/**
- * @brief Extract Ethereum address from private key
- * 
- * @param private_key Private key in hex format
- * @param address Buffer to store the address (should be at least MAX_ADDRESS_LENGTH)
- * @return 0 on success, non-zero on failure
- */
-int wallet_eth_address_from_private_key(const char *private_key, char *address);
-
-/**
- * @brief Generate wallets for multiple cryptocurrencies from a mnemonic
- * 
- * @param mnemonic The BIP39 mnemonic phrase
- * @param wallets Array of Wallet structs to fill
- * @param max_wallets Maximum number of wallets to generate
- * @param count Pointer to store actual count of wallets generated
- * @return 0 on success, non-zero on failure
- */
-int wallet_generate_multiple(const char *mnemonic, Wallet *wallets, size_t max_wallets, size_t *count);
-
-/**
- * @brief Print wallet information to a file
- * 
- * @param wallet The wallet to print
- * @param file File to print to
- * @return 0 on success, non-zero on failure
- */
-int wallet_print(const Wallet *wallet, FILE *file);
+const char *wallet_type_name(int wallet_type);
 
 #endif /* WALLET_H */ 

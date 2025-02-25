@@ -1,202 +1,168 @@
 /**
  * @file simd_utils.h
- * @brief SIMD optimization utilities for Ceed Parser
+ * @brief SIMD optimization utilities for both x86-64 (AVX2) and ARM64 (NEON)
  *
- * This file provides SIMD-accelerated functions for word matching
- * and other performance-critical operations, with specializations
- * for both x86 (AVX/AVX2) and ARM (NEON) platforms.
+ * This file provides various SIMD-accelerated functions for string and memory operations,
+ * as well as CPU feature detection.
  */
 
 #ifndef SIMD_UTILS_H
 #define SIMD_UTILS_H
 
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <string.h>
+#include <stdbool.h>
 
-/**
- * Architecture detection and SIMD instruction inclusion
- */
+// Architecture detection
 #if defined(__x86_64__) || defined(_M_X64)
-    #define SIMD_ARCH_X86_64
-    #if defined(__AVX2__)
-        #define HAVE_AVX2
-        #include <immintrin.h>
-    #elif defined(__AVX__)
-        #define HAVE_AVX
-        #include <immintrin.h>
-    #elif defined(__SSE4_2__)
-        #define HAVE_SSE4_2
-        #include <nmmintrin.h>
-    #elif defined(__SSE4_1__)
-        #define HAVE_SSE4_1
-        #include <smmintrin.h>
-    #endif
+    #define ARCH_X86_64
+    #include <immintrin.h>
 #elif defined(__aarch64__) || defined(_M_ARM64)
-    #define SIMD_ARCH_ARM64
-    #if defined(__ARM_NEON) || defined(__ARM_NEON__)
-        #define HAVE_NEON
-        #include <arm_neon.h>
-    #endif
+    #define ARCH_ARM64
+    #include <arm_neon.h>
 #endif
 
-/**
- * Alignment macros for optimal memory access
- */
-#define ALIGN_16 __attribute__((aligned(16)))
-#define ALIGN_32 __attribute__((aligned(32)))
-#define ALIGN_64 __attribute__((aligned(64)))
+// Alignment macros
+#define CACHE_LINE_SIZE 64
+#define ALIGN_TO_CACHE_LINE __attribute__((aligned(CACHE_LINE_SIZE)))
 
-/**
- * CPU feature detection at runtime
- */
+// SIMD features structure
 typedef struct {
-    bool has_avx;
-    bool has_avx2;
-    bool has_sse4_1;
-    bool has_sse4_2;
-    bool has_neon;
-    int cache_line_size;
-    int vector_width;
+    bool has_avx2;       // Advanced Vector Extensions 2
+    bool has_avx;        // Advanced Vector Extensions
+    bool has_sse4_2;     // SSE 4.2
+    bool has_sse4_1;     // SSE 4.1
+    bool has_ssse3;      // Supplemental SSE 3
+    bool has_sse3;       // SSE 3
+    bool has_sse2;       // SSE 2
+    bool has_sse;        // SSE
+    bool has_neon;       // ARM NEON
+    bool has_sve;        // ARM Scalable Vector Extension
+    size_t cache_line_size; // CPU cache line size
+    size_t vector_width;  // Width of vector registers in bytes
 } simd_features_t;
 
-/**
- * @brief Initialize SIMD features detection
- * 
- * @param features Pointer to features structure to fill
- */
-void simd_detect_features(simd_features_t* features);
+// Bloom filter structure
+typedef struct {
+    uint8_t* bits;       // Bit array
+    size_t size;         // Size of bit array in bits
+    size_t hash_funcs;   // Number of hash functions
+    size_t items;        // Number of items in the filter
+    double error_rate;   // Desired false positive rate
+} bloom_filter_t;
 
 /**
- * @brief Check if SIMD optimizations are available
+ * @brief Initialize SIMD feature detection
  * 
- * @return true if any SIMD feature is available
+ * @param features Pointer to a simd_features_t structure to fill
+ * @return true if detection was successful
+ */
+bool simd_detect_features(simd_features_t* features);
+
+/**
+ * @brief Check if SIMD is available
+ * 
+ * @return true if SIMD is available
  */
 bool simd_available(void);
 
 /**
- * @brief Prefetch data into cache for read
+ * @brief Prefetch data into cache
  * 
  * @param addr Address to prefetch
+ * @param rw Read/write hint (0 = read, 1 = write)
+ * @param locality Locality hint (0 = none, 1 = low, 2 = medium, 3 = high)
  */
-static inline void simd_prefetch(const void* addr) {
-#if defined(SIMD_ARCH_X86_64) && (defined(HAVE_SSE4_1) || defined(HAVE_SSE4_2) || defined(HAVE_AVX) || defined(HAVE_AVX2))
-    _mm_prefetch((const char*)addr, _MM_HINT_T0);
-#elif defined(SIMD_ARCH_ARM64) && defined(HAVE_NEON)
-    __builtin_prefetch(addr, 0, 3);
-#else
-    (void)addr; // Avoid unused parameter warning
-#endif
-}
+void simd_prefetch(const void* addr, int rw, int locality);
 
 /**
- * @brief SIMD-optimized string search
- * 
- * Searches for needle in haystack using SIMD instructions when available.
- * Falls back to standard strstr when SIMD is not available.
+ * @brief SIMD-accelerated string search
  * 
  * @param haystack String to search in
  * @param needle String to search for
- * @return Pointer to the found location or NULL
+ * @return Pointer to the first occurrence of needle in haystack, or NULL if not found
  */
 const char* simd_strstr(const char* haystack, const char* needle);
 
 /**
- * @brief SIMD-optimized string compare
+ * @brief SIMD-accelerated string comparison
  * 
  * @param str1 First string
  * @param str2 Second string
- * @return Integer less than, equal to, or greater than zero if str1 is found 
- *         to be less than, equal to, or greater than str2
+ * @return 0 if the strings are equal, <0 if str1 < str2, >0 if str1 > str2
  */
 int simd_strcmp(const char* str1, const char* str2);
 
 /**
- * @brief SIMD-optimized binary search for word list lookups
+ * @brief SIMD-accelerated binary search
  * 
- * This is an optimized binary search implementation that uses 
- * SIMD instructions to compare multiple words at once.
- * 
- * @param words Array of words (must be sorted)
- * @param word_count Number of words in the array
- * @param target Target word to find
- * @return true if the word was found, false otherwise
+ * @param array Array of strings
+ * @param n Number of elements
+ * @param search String to search for
+ * @return true if found
  */
-bool simd_binary_search(const char** words, size_t word_count, const char* target);
+bool simd_binary_search(char** array, size_t n, const char* search);
 
 /**
- * @brief SIMD-optimized case-insensitive string compare
+ * @brief SIMD-accelerated case-insensitive string comparison
  * 
  * @param str1 First string
  * @param str2 Second string
- * @return Integer less than, equal to, or greater than zero if str1 is found 
- *         to be less than, equal to, or greater than str2
+ * @return 0 if the strings are equal (ignoring case), <0 if str1 < str2, >0 if str1 > str2
  */
 int simd_strcasecmp(const char* str1, const char* str2);
 
 /**
- * @brief SIMD-optimized memory fill with zeros
+ * @brief SIMD-accelerated memory fill with zeros
  * 
- * @param dst Destination memory
- * @param size Size in bytes
+ * @param dest Destination memory
+ * @param n Number of bytes
  */
-void simd_memzero(void* dst, size_t size);
+void simd_memzero(void* dest, size_t n);
 
 /**
- * @brief SIMD-optimized memory copy
+ * @brief SIMD-accelerated memory copy
  * 
- * @param dst Destination memory
+ * @param dest Destination memory
  * @param src Source memory
- * @param size Size in bytes
- * @return Destination pointer
+ * @param n Number of bytes
+ * @return Destination memory
  */
-void* simd_memcpy(void* dst, const void* src, size_t size);
+void* simd_memcpy(void* dest, const void* src, size_t n);
 
 /**
- * @brief Bloom filter for word list lookups
+ * @brief Create a bloom filter
  * 
- * A bloom filter is a space-efficient probabilistic data structure
- * used to test whether an element is a member of a set. It can have
- * false positives but no false negatives.
+ * @param size Size of bit array in bits
+ * @param error_rate Desired false positive rate (0.0 - 1.0)
+ * @return Bloom filter
  */
-typedef struct {
-    uint64_t* bits;
-    size_t size;
-    size_t hash_functions;
-} bloom_filter_t;
+bloom_filter_t bloom_filter_create(size_t size, double error_rate);
 
 /**
- * @brief Initialize a bloom filter
+ * @brief Add an item to a bloom filter
  * 
- * @param filter Bloom filter to initialize
- * @param expected_items Expected number of items
- * @param false_positive_rate Desired false positive rate (0.0-1.0)
- * @return true if successful
+ * @param filter Bloom filter
+ * @param item Item to add
+ * @param size Size of item in bytes
  */
-bool bloom_filter_init(bloom_filter_t* filter, size_t expected_items, double false_positive_rate);
+void bloom_filter_add(bloom_filter_t* filter, const void* item, size_t size);
 
 /**
- * @brief Add a word to the bloom filter
+ * @brief Check if an item is in a bloom filter
  * 
- * @param filter Filter to add to
- * @param word Word to add
+ * @param filter Bloom filter
+ * @param item Item to check
+ * @param size Size of item in bytes
+ * @return true if the item might be in the filter
  */
-void bloom_filter_add(bloom_filter_t* filter, const char* word);
+bool bloom_filter_check(const bloom_filter_t* filter, const void* item, size_t size);
 
 /**
- * @brief Check if a word might be in the bloom filter
+ * @brief Destroy a bloom filter
  * 
- * @param filter Filter to check
- * @param word Word to check
- * @return true if word might be in the filter, false if definitely not
+ * @param filter Bloom filter
  */
-bool bloom_filter_might_contain(const bloom_filter_t* filter, const char* word);
+void bloom_filter_destroy(bloom_filter_t* filter);
 
-/**
- * @brief Free bloom filter resources
- * 
- * @param filter Filter to free
- */
-void bloom_filter_cleanup(bloom_filter_t* filter);
-
-#endif /* SIMD_UTILS_H */ 
+#endif // SIMD_UTILS_H 

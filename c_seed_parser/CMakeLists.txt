@@ -91,7 +91,51 @@ set(SOURCES
     src/memory_pool.c
     src/thread_pool.c
     src/cache.c
+    src/seed_parser_optimized.c
 )
+
+# Option to use optimized seed parser
+option(USE_OPTIMIZED_PARSER "Use the optimized version of the seed parser" ON)
+
+if(USE_OPTIMIZED_PARSER)
+    add_definitions(-DUSE_OPTIMIZED_PARSER)
+endif()
+
+# Add Apple Silicon specific optimizations
+if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+    message(STATUS "Configuring for Apple Silicon (ARM64)")
+    
+    # Enable ARM NEON SIMD instructions explicitly
+    add_compile_options(-march=armv8.5-a+simd+crypto)
+    
+    # Use Apple's accelerate framework for optimized math
+    find_library(ACCELERATE_FRAMEWORK Accelerate)
+    if(ACCELERATE_FRAMEWORK)
+        message(STATUS "Found Accelerate framework: ${ACCELERATE_FRAMEWORK}")
+        list(APPEND EXTRA_LIBS ${ACCELERATE_FRAMEWORK})
+        add_definitions(-DUSE_ACCELERATE_FRAMEWORK)
+    endif()
+    
+    # Enable link time optimization for maximum performance
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    
+    # Use Apple-specific memory alignment for best performance
+    add_compile_definitions(APPLE_SILICON=1)
+    add_compile_definitions(PREFERRED_ALIGNMENT=16)
+    
+    # Set optimal thread count based on M-series chip core architecture
+    add_compile_definitions(DEFAULT_PERFORMANCE_CORES=8)
+    add_compile_definitions(DEFAULT_EFFICIENCY_CORES=2)
+    
+    # Add fast math optimizations (be careful if exact IEEE compliance is needed)
+    add_compile_options(-ffast-math)
+    
+    # Tune specifically for M2 architecture
+    add_compile_options(-mcpu=apple-m2)
+    
+    # Use Apple's Grand Central Dispatch integration
+    add_compile_definitions(USE_GCD=1)
+endif()
 
 # Add executable
 add_executable(ceed_parser ${SOURCES})
@@ -101,6 +145,7 @@ target_link_libraries(ceed_parser
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     m  # Add math library
+    ${EXTRA_LIBS}  # Added Apple Accelerate framework if available
 )
 
 if(SQLite3_FOUND)
@@ -143,31 +188,6 @@ configure_file(
 add_custom_target(uninstall
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
 )
-
-# Generate uninstall script
-file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in
-"if(NOT EXISTS \"@CMAKE_CURRENT_BINARY_DIR@/install_manifest.txt\")
-    message(FATAL_ERROR \"Cannot find install manifest: @CMAKE_CURRENT_BINARY_DIR@/install_manifest.txt\")
-endif()
-
-file(READ \"@CMAKE_CURRENT_BINARY_DIR@/install_manifest.txt\" files)
-string(REGEX REPLACE \"\\n\" \";\" files \"\${files}\")
-foreach(file \${files})
-    message(STATUS \"Uninstalling \$ENV{DESTDIR}\${file}\")
-    if(IS_SYMLINK \"\$ENV{DESTDIR}\${file}\" OR EXISTS \"\$ENV{DESTDIR}\${file}\")
-        exec_program(
-            \"@CMAKE_COMMAND@\" ARGS \"-E remove \\\"\$ENV{DESTDIR}\${file}\\\"\"
-            OUTPUT_VARIABLE rm_out
-            RETURN_VALUE rm_retval
-        )
-        if(NOT \"\${rm_retval}\" STREQUAL 0)
-            message(FATAL_ERROR \"Problem when removing \$ENV{DESTDIR}\${file}\")
-        endif()
-    else()
-        message(STATUS \"File \$ENV{DESTDIR}\${file} does not exist.\")
-    endif()
-endforeach()
-")
 
 # Configure benchmark build option
 option(BUILD_BENCHMARKS "Build benchmarking tools" ON)
@@ -296,4 +316,46 @@ elseif(IS_ARM64)
 endif()
 message(STATUS "  OpenSSL: ${OPENSSL_FOUND}")
 message(STATUS "  SQLite3: ${SQLite3_FOUND}")
-message(STATUS "  Threads: ${CMAKE_THREAD_LIBS_INIT}") 
+message(STATUS "  Threads: ${CMAKE_THREAD_LIBS_INIT}")
+
+# Enable testing
+enable_testing()
+
+# Define test sources
+set(TEST_SOURCES
+    test/test_main.c
+    test/test_mnemonic.c
+    test/test_wallet.c
+    test/test_parser.c
+    src/mnemonic.c
+    src/wallet.c
+    src/seed_parser.c
+    src/sha3.c
+)
+
+# Add test executable
+add_executable(ceed_parser_tests ${TEST_SOURCES})
+
+# Link test libraries
+target_link_libraries(ceed_parser_tests
+    ${OPENSSL_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+    m  # Add math library
+)
+
+if(SQLite3_FOUND)
+    target_link_libraries(ceed_parser_tests ${SQLite3_LIBRARIES})
+endif()
+
+# Copy data directory for tests
+add_custom_command(
+    TARGET ceed_parser_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data
+)
+
+# Register tests
+add_test(NAME all_tests COMMAND ceed_parser_tests)
+add_test(NAME mnemonic_tests COMMAND ceed_parser_tests mnemonic)
+add_test(NAME wallet_tests COMMAND ceed_parser_tests wallet)
+add_test(NAME parser_tests COMMAND ceed_parser_tests parser) 
