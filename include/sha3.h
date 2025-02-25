@@ -20,14 +20,14 @@ typedef struct {
     size_t pos;          /* Current position in the state */
     size_t rate;         /* Rate in bits */
     size_t capacity;     /* Capacity in bits */
-} SHA3_CTX;
+} SHA_CTX;
 
 /**
  * @brief Initialize the SHA3-256 context
  * 
  * @param ctx SHA3 context to initialize
  */
-void sha3_256_Init(SHA3_CTX *ctx);
+void sha3_256_Init(SHA_CTX *ctx);
 
 /**
  * @brief Update the SHA3 context with new data
@@ -36,7 +36,7 @@ void sha3_256_Init(SHA3_CTX *ctx);
  * @param data Pointer to the input data
  * @param len Length of the input data in bytes
  */
-void sha3_Update(SHA3_CTX *ctx, const uint8_t *data, size_t len);
+void sha3_Update(SHA_CTX *ctx, const uint8_t *data, size_t len);
 
 /**
  * @brief Finalize the SHA3 hash and output the digest
@@ -44,6 +44,6 @@ void sha3_Update(SHA3_CTX *ctx, const uint8_t *data, size_t len);
  * @param ctx SHA3 context to finalize
  * @param digest Pointer to the output buffer (32 bytes for SHA3-256)
  */
-void sha3_Final(SHA3_CTX *ctx, uint8_t *digest);
+void sha3_Final(SHA_CTX *ctx, uint8_t *digest);
 
 #endif /* SHA3_H */ 

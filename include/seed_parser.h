@@ -68,6 +68,7 @@ typedef struct {
     const char *db_path;             // Path to the database file (legacy - use db_file instead)
     bool parse_eth;                  // Whether to parse Ethereum private keys
     const char **exwords;            // Array of excluded words
+    const char *wordlist_dir;        // Directory containing wordlists
 } SeedParserConfig;
 
 /**
@@ -92,14 +93,9 @@ typedef struct {
  * @brief Initialize the seed parser with the given configuration options
  * 
  * @param config Pointer to the configuration options
- * @param stats Pointer to the statistics structure
- * @param progress_callback Callback function for progress updates
- * @param seed_found_callback Callback function for seed phrase found events
- * @return true on success, false on failure
+ * @return int 0 on success, non-zero on failure
  */
-bool seed_parser_init(const SeedParserConfig *config, SeedParserStats *stats, 
-                      void (*progress_callback)(const char*, const SeedParserStats*),
-                      void (*seed_found_callback)(const char*, const char*, MnemonicType, MnemonicLanguage, size_t));
+int seed_parser_init(const SeedParserConfig *config);
 
 /**
  * @brief Validate a mnemonic phrase
@@ -126,9 +122,9 @@ bool seed_parser_generate_wallet_address(const char *seed_phrase, WalletType wal
  * @brief Process a file for seed phrases
  * 
  * @param filename The file to process
- * @return true on success, false on failure
+ * @return int 0 on success, non-zero on failure
  */
-bool seed_parser_process_file(const char *filename);
+int seed_parser_process_file(const char *filename);
 
 /**
  * @brief Process a single line for seed phrases
@@ -182,5 +178,12 @@ void seed_parser_register_seed_found_callback(void (*callback)(const char*, cons
  * @return true if processing is complete, false otherwise
  */
 bool seed_parser_is_complete(void);
+
+/**
+ * @brief Handle signals for graceful shutdown
+ * 
+ * @param signum The signal number
+ */
+void seed_parser_handle_signal(int signum);
 
 #endif /* SEED_PARSER_H */

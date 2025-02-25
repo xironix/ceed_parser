@@ -46,6 +46,10 @@ vgcore.*
 *.db
 *.sqlite
 *.sqlite3
+# SQLite journal files
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 
 # Log files
 logs/
@@ -97,4 +101,22 @@ temp/
 *.csr
 
 # Specific to this project
+# Cryptocurrency-specific files
+*.wallet
+*.keys
+*.seed
+found_seeds/
+wallets/
+
+# Benchmark and profiling files
+benchmark_results/
+*.prof
+gmon.out
+perf.data
+perf.data.old
+
+# Temporary parsing files
+*.tmp
+*.parse
+
 # Add any project-specific files that should be ignored 

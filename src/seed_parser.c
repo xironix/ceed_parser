@@ -499,7 +499,7 @@ static void process_mnemonic(SeedParser *parser, const char *mnemonic, const cha
         Wallet wallets[20];
         size_t wallet_count = 0;
         
-        if (wallet_generate_multiple(mnemonic, wallets, 20, NULL, &wallet_count) == 0) {
+        if (wallet_generate_multiple(mnemonic, wallets, 20, &wallet_count) == 0) {
             for (size_t i = 0; i < wallet_count; i++) {
                 char wallet_entry[1024];
                 snprintf(wallet_entry, sizeof(wallet_entry), "%s - %s",

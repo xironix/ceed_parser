@@ -659,7 +659,7 @@ bool bloom_filter_init(bloom_filter_t* filter, size_t expected_items, double fal
     }
     
     filter->size = size;
-    filter->hash_functions = hash_functions;
+    filter->hash_funcs = hash_funcs;
     
     return true;
 }
@@ -671,7 +671,7 @@ void bloom_filter_add(bloom_filter_t* filter, const char* word) {
     uint32_t hash1 = bloom_hash1(word);
     uint32_t hash2 = bloom_hash2(word);
     
-    for (size_t i = 0; i < filter->hash_functions; i++) {
+    for (size_t i = 0; i < filter->hash_funcs i++) {
         uint32_t hash = (hash1 + i * hash2) % filter->size;
         filter->bits[hash / 64] |= (1ULL << (hash % 64));
     }
@@ -684,7 +684,7 @@ bool bloom_filter_might_contain(const bloom_filter_t* filter, const char* word) 
     uint32_t hash1 = bloom_hash1(word);
     uint32_t hash2 = bloom_hash2(word);
     
-    for (size_t i = 0; i < filter->hash_functions; i++) {
+    for (size_t i = 0; i < filter->hash_funcs i++) {
         uint32_t hash = (hash1 + i * hash2) % filter->size;
         if (!(filter->bits[hash / 64] & (1ULL << (hash % 64)))) {
             return false;
@@ -704,5 +704,5 @@ void bloom_filter_cleanup(bloom_filter_t* filter) {
     }
     
     filter->size = 0;
-    filter->hash_functions = 0;
+    filter->hash_funcs = 0;
 } 

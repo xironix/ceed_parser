@@ -456,9 +456,9 @@ bool mnemonic_validate(MnemonicContext *ctx, const char *mnemonic,
     /* Determine type based on word count */
     MnemonicType detected_type;
     if (word_count == 25) {
-        detected_type = MNEMONIC_TYPE_MONERO;
+        detected_type = MNEMONIC_MONERO;
     } else {
-        detected_type = MNEMONIC_TYPE_BIP39;
+        detected_type = MNEMONIC_BIP39;
     }
     
     /* Set the detected type */
@@ -468,7 +468,7 @@ bool mnemonic_validate(MnemonicContext *ctx, const char *mnemonic,
     
     /* Validate based on type */
     bool valid;
-    if (detected_type == MNEMONIC_TYPE_MONERO) {
+    if (detected_type == MNEMONIC_MONERO) {
         valid = validate_monero(ctx, mnemonic, language);
     } else {
         valid = validate_bip39(ctx, mnemonic, language);

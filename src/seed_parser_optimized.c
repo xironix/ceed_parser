@@ -406,11 +406,11 @@ const char* seed_parser_get_simd_capabilities(void) {
         strcat(capabilities, "AVX ");
     }
     
-    if (g_simd_features.has_sse42) {
+    if (g_simd_features.has_sse4_2) {
         strcat(capabilities, "SSE4.2 ");
     }
     
-    if (g_simd_features.has_sse41) {
+    if (g_simd_features.has_sse4_1) {
         strcat(capabilities, "SSE4.1 ");
     }
     

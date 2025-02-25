@@ -68,15 +68,13 @@ bool wallet_generate_from_seed(const char *seed_phrase, int wallet_type,
  * Generate multiple wallets from a seed phrase
  * 
  * @param seed_phrase The seed phrase (mnemonic)
- * @param wallet_types Array of wallet types to generate
- * @param wallet_count Number of wallet types in the array
- * @param passphrase Optional passphrase (can be NULL)
  * @param wallets Array of wallet structures to store the results
- * @return Number of successfully generated wallets
+ * @param max_wallets Maximum number of wallets to generate
+ * @param count Pointer to store the number of wallets generated
+ * @return 0 on success, non-zero on failure
  */
-int wallet_generate_multiple(const char *seed_phrase, const int *wallet_types, 
-                             size_t wallet_count, const char *passphrase, 
-                             Wallet *wallets);
+int wallet_generate_multiple(const char *seed_phrase, Wallet *wallets, 
+                             size_t max_wallets, size_t *count);
 
 /**
  * Validate a cryptocurrency address

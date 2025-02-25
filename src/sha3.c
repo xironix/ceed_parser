@@ -92,8 +92,8 @@ static void keccakf(uint64_t state[25]) {
 /**
  * @brief Initialize the SHA3 context
  */
-void sha3_256_Init(SHA3_CTX *ctx) {
-    memset(ctx, 0, sizeof(SHA3_CTX));
+void sha3_256_Init(SHA_CTX *ctx) {
+    memset(ctx, 0, sizeof(SHA_CTX));
     ctx->capacity = 512; /* SHA3-256 has 512 bits of capacity */
     ctx->rate = 1088;    /* 1600 - 512 = 1088 bits of rate */
 }
@@ -101,7 +101,7 @@ void sha3_256_Init(SHA3_CTX *ctx) {
 /**
  * @brief Update the SHA3 context with new data
  */
-void sha3_Update(SHA3_CTX *ctx, const uint8_t *data, size_t len) {
+void sha3_Update(SHA_CTX *ctx, const uint8_t *data, size_t len) {
     size_t i;
     uint8_t *state = (uint8_t *)ctx->state;
     
@@ -122,7 +122,7 @@ void sha3_Update(SHA3_CTX *ctx, const uint8_t *data, size_t len) {
 /**
  * @brief Finalize the SHA3 hash and output the digest
  */
-void sha3_Final(SHA3_CTX *ctx, uint8_t *digest) {
+void sha3_Final(SHA_CTX *ctx, uint8_t *digest) {
     uint8_t *state = (uint8_t *)ctx->state;
     
     /* Add the final bit of padding */

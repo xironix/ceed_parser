@@ -61,37 +61,43 @@ typedef struct {
     Wordlist **wordlists;        // Array of wordlists
     size_t wordlist_count;       // Number of loaded wordlists
     bool initialized;            // Whether the context is initialized
+    char *wordlist_dir;          // Directory containing wordlists
 } MnemonicContext;
 
 /**
  * Initialize the mnemonic subsystem
  *
- * @return 0 on success, non-zero on failure
+ * @param wordlist_dir Directory containing wordlist files
+ * @return MnemonicContext pointer on success, NULL on failure
  */
-int mnemonic_init(void);
+MnemonicContext* mnemonic_init(const char *wordlist_dir);
 
 /**
  * Load a wordlist from a file
  *
+ * @param ctx The mnemonic context
  * @param language The language of the wordlist
  * @return 0 on success, non-zero on failure
  */
-int mnemonic_load_wordlist(MnemonicLanguage language);
+int mnemonic_load_wordlist(MnemonicContext *ctx, MnemonicLanguage language);
 
 /**
  * Validate a mnemonic phrase
  *
+ * @param ctx The mnemonic context
  * @param phrase The mnemonic phrase to validate
  * @param type Output parameter to store the detected type
  * @param language Output parameter to store the detected language (can be NULL)
  * @return true if valid, false otherwise
  */
-bool mnemonic_validate(const char *phrase, MnemonicType *type, MnemonicLanguage *language);
+bool mnemonic_validate(MnemonicContext *ctx, const char *phrase, MnemonicType *type, MnemonicLanguage *language);
 
 /**
  * Clean up the mnemonic subsystem
+ * 
+ * @param ctx The mnemonic context to clean up
  */
-void mnemonic_cleanup(void);
+void mnemonic_cleanup(MnemonicContext *ctx);
 
 /**
  * Convert a mnemonic phrase to a binary seed

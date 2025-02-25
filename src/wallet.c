@@ -423,7 +423,7 @@ static bool generate_ethereum_address(const uint8_t *private_key, char *address,
     
     /* Hash the public key (exclude the first byte) */
     uint8_t hash[32];
-    SHA3_CTX sha3_ctx;
+    SHA_CTX sha3_ctx;
     sha3_256_Init(&sha3_ctx);
     sha3_Update(&sha3_ctx, pub_key + 1, pub_len - 1);
     sha3_Final(&sha3_ctx, hash);
@@ -554,31 +554,31 @@ int wallet_from_mnemonic(const char *mnemonic, CryptoType type, const char *path
     }
     
     /* Convert private key to hex */
-    binary_to_hex(private_key, 32, wallet->private_key, sizeof(wallet->private_key));
+    binary_to_hex(private_key, 32, wallet->private_keys, sizeof(wallet->private_keys));
     
     /* Generate address based on type */
     bool success = false;
     
     switch (type) {
         case CRYPTO_BTC:
-            success = generate_bitcoin_address(private_key, ADDRESS_P2PKH, wallet->address, sizeof(wallet->address));
+            success = generate_bitcoin_address(private_key, ADDRESS_P2PKH, wallet->address, sizeof(wallet->addresses));
             wallet->address_type = ADDRESS_P2PKH;
             break;
             
         case CRYPTO_ETH:
         case CRYPTO_ETC:
-            success = generate_ethereum_address(private_key, wallet->address, sizeof(wallet->address));
+            success = generate_ethereum_address(private_key, wallet->address, sizeof(wallet->addresses));
             wallet->address_type = ADDRESS_STANDARD;
             break;
             
         case CRYPTO_XMR:
-            success = generate_monero_address(mnemonic, wallet->address, sizeof(wallet->address));
+            success = generate_monero_address(mnemonic, wallet->address, sizeof(wallet->addresses));
             wallet->address_type = ADDRESS_STANDARD;
             break;
             
         default:
             /* Fallback to Bitcoin-like address */
-            success = generate_bitcoin_address(private_key, ADDRESS_P2PKH, wallet->address, sizeof(wallet->address));
+            success = generate_bitcoin_address(private_key, ADDRESS_P2PKH, wallet->address, sizeof(wallet->addresses));
             wallet->address_type = ADDRESS_P2PKH;
             break;
     }
@@ -603,12 +603,12 @@ int wallet_monero_from_mnemonic(const char *mnemonic, Wallet *wallet) {
     strcpy(wallet->path, "m/44'/128'/0'/0/0");
     
     /* Generate Monero address */
-    if (!generate_monero_address(mnemonic, wallet->address, sizeof(wallet->address))) {
+    if (!generate_monero_address(mnemonic, wallet->address, sizeof(wallet->addresses))) {
         return -1;
     }
     
     /* For Monero, we don't expose the private key directly */
-    snprintf(wallet->private_key, sizeof(wallet->private_key), "<seed-based-private-key>");
+    snprintf(wallet->private_keys, sizeof(wallet->private_keys), "<seed-based-private-key>");
     
     return 0;
 }
@@ -642,7 +642,7 @@ int wallet_monero_generate_subaddresses(const Wallet *primary_wallet,
         /* Generate fake subaddress - in a real implementation, this would use Monero crypto */
         uint8_t hash[32];
         
-        SHA256((const uint8_t *)primary_wallet->address, strlen(primary_wallet->address), hash);
+        SHA256((const uint8_t *)primary_wallet->address, strlen(primary_wallet->addresses), hash);
         hash[0] ^= i;  /* Make it different for each subaddress */
         
         snprintf(subaddresses[i].address, sizeof(subaddresses[i].address), 
@@ -822,11 +822,11 @@ int wallet_print(const Wallet *wallet, FILE *file) {
     fprintf(file, "Cryptocurrency: %s\n", type_str);
     fprintf(file, "Address Type: %s\n", address_type_str);
     fprintf(file, "Derivation Path: %s\n", wallet->path);
-    fprintf(file, "Address: %s\n", wallet->address);
+    fprintf(file, "Address: %s\n", wallet->addresses);
     
     /* Only print private key for non-Monero wallets */
     if (wallet->type != CRYPTO_XMR) {
-        fprintf(file, "Private Key: %s\n", wallet->private_key);
+        fprintf(file, "Private Key: %s\n", wallet->private_keys);
     }
     
     fprintf(file, "\n");
