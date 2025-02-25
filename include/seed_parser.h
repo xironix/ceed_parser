@@ -63,6 +63,11 @@ typedef struct {
     char db_file[MAX_FILE_PATH];     // Database file path
     bool show_performance;           // Whether to show performance metrics
     bool show_cpu_info;              // Whether to show CPU information
+    
+    // Additional fields needed by seed_parser.c
+    const char *db_path;             // Path to the database file (legacy - use db_file instead)
+    bool parse_eth;                  // Whether to parse Ethereum private keys
+    const char **exwords;            // Array of excluded words
 } SeedParserConfig;
 
 /**

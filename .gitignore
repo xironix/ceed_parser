@@ -1,0 +1,100 @@
+# Build artifacts
+/build/
+/bin/
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+*.app
+*.d
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+cmake_uninstall.cmake
+CTestTestfile.cmake
+Makefile
+*.cmake
+!cmake_uninstall.cmake.in
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-*
+.clangd/
+compile_commands.json
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+core
+vgcore.*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+logs/
+*.log
+seed_phrases.txt
+wallet_addresses.txt
+eth_addresses.txt
+eth_keys.txt
+monero_wallets.txt
+
+# Test artifacts
+/test/test_runner
+/test/*.log
+/test/tmp/
+
+# Dependencies
+/deps/
+/vendor/
+
+# Generated documentation
+/doc/html/
+/doc/latex/
+/doc/xml/
+/doc/man/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# User-specific files
+*.user
+*.userprefs
+*.usertasks
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# OpenSSL generated files
+*.pem
+*.key
+*.crt
+*.csr
+
+# Specific to this project
+# Add any project-specific files that should be ignored 

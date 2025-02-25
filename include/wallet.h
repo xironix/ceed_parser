@@ -95,4 +95,13 @@ bool wallet_validate_address(const char *address, int wallet_type);
  */
 const char *wallet_type_name(int wallet_type);
 
+/**
+ * Generate a Monero wallet from a mnemonic phrase
+ * 
+ * @param mnemonic The Monero mnemonic phrase
+ * @param wallet Pointer to wallet structure to store the results
+ * @return 0 on success, non-zero on failure
+ */
+int wallet_monero_from_mnemonic(const char *mnemonic, Wallet *wallet);
+
 #endif /* WALLET_H */ 

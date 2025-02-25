@@ -478,6 +478,9 @@ void seed_found_callback(const char *file_path,
         case LANGUAGE_MONERO_ENGLISH:
             lang_str = "Monero";
             break;
+        case LANGUAGE_COUNT:
+            lang_str = "Unknown";
+            break;
     }
     
     printf("Found %s %s mnemonic in %s (line %zu): %s\n", 

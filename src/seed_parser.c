@@ -20,6 +20,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <sqlite3.h>
+#include <libgen.h>
 
 #include "seed_parser.h"
 #include "mnemonic.h"
@@ -457,7 +458,7 @@ static void process_mnemonic(SeedParser *parser, const char *mnemonic, const cha
     MnemonicLanguage language;
     
     /* Validate the mnemonic */
-    if (!mnemonic_validate(parser->mnemonic_ctx, mnemonic, &type, &language)) {
+    if (!mnemonic_validate(mnemonic, &type, &language)) {
         return;
     }
     
@@ -473,9 +474,9 @@ static void process_mnemonic(SeedParser *parser, const char *mnemonic, const cha
     }
     
     /* Update statistics based on type */
-    if (type == MNEMONIC_TYPE_BIP39) {
+    if (type == MNEMONIC_BIP39) {
         update_stats(parser, "phrases_found", 1);
-    } else if (type == MNEMONIC_TYPE_MONERO) {
+    } else if (type == MNEMONIC_MONERO) {
         update_stats(parser, "monero_phrases_found", 1);
     }
     
@@ -490,7 +491,7 @@ static void process_mnemonic(SeedParser *parser, const char *mnemonic, const cha
     snprintf(log_entry, sizeof(log_entry), "[%s] %s - Source: %s", 
              timestamp, mnemonic, source_file);
     
-    if (type == MNEMONIC_TYPE_BIP39) {
+    if (type == MNEMONIC_BIP39) {
         write_log(parser->seed_log, log_entry);
         write_log(parser->full_log, log_entry);
         
@@ -498,28 +499,28 @@ static void process_mnemonic(SeedParser *parser, const char *mnemonic, const cha
         Wallet wallets[20];
         size_t wallet_count = 0;
         
-        if (wallet_generate_multiple(mnemonic, wallets, 20, &wallet_count) == 0) {
+        if (wallet_generate_multiple(mnemonic, wallets, 20, NULL, &wallet_count) == 0) {
             for (size_t i = 0; i < wallet_count; i++) {
                 char wallet_entry[1024];
-                snprintf(wallet_entry, sizeof(wallet_entry), "%s - %s - %s",
-                         mnemonic, wallets[i].path, wallets[i].address);
+                snprintf(wallet_entry, sizeof(wallet_entry), "%s - %s",
+                         mnemonic, wallets[i].addresses[0]);
                 
                 write_log(parser->addr_log, wallet_entry);
                 
-                if (wallets[i].type == CRYPTO_ETH) {
+                if (wallets[i].type == WALLET_TYPE_ETHEREUM) {
                     write_log(parser->eth_addr_log, wallet_entry);
                     
                     /* Also log private key for ETH if desired */
                     if (parser->config->parse_eth) {
                         char key_entry[1024];
                         snprintf(key_entry, sizeof(key_entry), "%s - %s - %s",
-                                 mnemonic, wallets[i].address, wallets[i].private_key);
+                                 mnemonic, wallets[i].addresses[0], wallets[i].private_keys[0]);
                         write_log(parser->eth_key_log, key_entry);
                     }
                 }
             }
         }
-    } else if (type == MNEMONIC_TYPE_MONERO) {
+    } else if (type == MNEMONIC_MONERO) {
         write_log(parser->monero_log, log_entry);
         write_log(parser->full_log, log_entry);
         
@@ -528,7 +529,7 @@ static void process_mnemonic(SeedParser *parser, const char *mnemonic, const cha
         if (wallet_monero_from_mnemonic(mnemonic, &wallet) == 0) {
             char wallet_entry[1024];
             snprintf(wallet_entry, sizeof(wallet_entry), "%s - %s",
-                     mnemonic, wallet.address);
+                     mnemonic, wallet.addresses[0]);
             
             write_log(parser->monero_log, wallet_entry);
         }
