@@ -1,4 +1,0 @@
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/_CMakeLTOTest-C/bin/CMakeFiles/foo.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/_CMakeLTOTest-C/bin/CMakeFiles/boo.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/_CMakeLTOTest-C/bin/CMakeFiles/edit_cache.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/_CMakeLTOTest-C/bin/CMakeFiles/rebuild_cache.dir

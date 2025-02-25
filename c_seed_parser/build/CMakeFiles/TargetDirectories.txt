@@ -1,9 +1,0 @@
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/ceed_parser.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/uninstall.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/bench_ceed_parser.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/edit_cache.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/rebuild_cache.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/list_install_components.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/install.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/install/local.dir
-/Users/zarniwoop/Source/c/ceed_parser/c_seed_parser/build/CMakeFiles/install/strip.dir
