@@ -121,47 +121,42 @@ static void sha256(const uint8_t *input, size_t input_len, uint8_t *output) {
  * @brief Initialize the mnemonic module
  */
 struct MnemonicContext *mnemonic_init(const char *wordlist_dir) {
-  // Add debug message to track initialization
-  fprintf(stderr, "Initializing mnemonic with directory: %s\n",
-          wordlist_dir ? wordlist_dir : "NULL");
-
-  // Validate wordlist_dir is not NULL
-  if (!wordlist_dir) {
-    fprintf(stderr, "Error: wordlist_dir is NULL\n");
+  // Validate input
+  if (wordlist_dir == NULL) {
+    fprintf(stderr, "Error: wordlist_dir cannot be NULL\n");
     return NULL;
   }
 
-  // Allocate context - single allocation point
-  struct MnemonicContext *ctx =
-      (struct MnemonicContext *)calloc(1, sizeof(struct MnemonicContext));
-  if (!ctx) {
-    fprintf(stderr, "Error: Failed to allocate memory for mnemonic context\n");
+  // Allocate memory for the context
+  struct MnemonicContext *ctx = calloc(1, sizeof(struct MnemonicContext));
+  if (ctx == NULL) {
+    fprintf(stderr, "Error: Failed to allocate memory for MnemonicContext\n");
     return NULL;
   }
 
-  // Use calloc instead of malloc+memset for safer initialization
-  fprintf(stderr, "Allocated context at %p\n", (void *)ctx);
-
-  // Duplicate the wordlist directory path
+  // Copy the wordlist directory path to ensure we own the memory
   ctx->wordlist_dir = strdup(wordlist_dir);
-  if (!ctx->wordlist_dir) {
+  if (ctx->wordlist_dir == NULL) {
     fprintf(stderr, "Error: Failed to duplicate wordlist directory path\n");
-    free(ctx); // Free the context if path duplication fails
+    free(ctx);
     return NULL;
   }
 
-  fprintf(stderr, "Using wordlist directory: %s\n", ctx->wordlist_dir);
-
-  // Allocate memory for wordlists using calloc for zero-initialization
-  ctx->wordlists = (Wordlist *)calloc(LANGUAGE_COUNT, sizeof(Wordlist));
-  if (!ctx->wordlists) {
+  // Allocate memory for wordlists array
+  ctx->wordlists = calloc(LANGUAGE_COUNT, sizeof(Wordlist));
+  if (ctx->wordlists == NULL) {
     fprintf(stderr, "Error: Failed to allocate memory for wordlists\n");
-    free(ctx->wordlist_dir); // Free the path if wordlist allocation fails
-    free(ctx);               // Free the context
+    free(ctx->wordlist_dir);
+    free(ctx);
     return NULL;
   }
 
-  // No need for memset with calloc
+  // Initialize language loaded flags
+  for (int i = 0; i < LANGUAGE_COUNT; i++) {
+    ctx->languages_loaded[i] = false;
+  }
+
+  // Set as initialized
   ctx->initialized = true;
 
   return ctx;
@@ -171,33 +166,31 @@ struct MnemonicContext *mnemonic_init(const char *wordlist_dir) {
  * @brief Clean up resources used by mnemonic module
  */
 void mnemonic_cleanup(struct MnemonicContext *ctx) {
-  if (!ctx) {
-    return; // Nothing to clean up
+  if (ctx == NULL) {
+    return;
   }
 
-  // Free wordlists
-  if (ctx->wordlists) {
-    for (size_t i = 0; i < LANGUAGE_COUNT; i++) {
-      if (ctx->languages_loaded[i] && ctx->wordlists[i].words) {
-        // Free each word
-        for (size_t j = 0; j < ctx->wordlists[i].word_count; j++) {
-          free(ctx->wordlists[i].words[j]);
-          ctx->wordlists[i].words[j] = NULL; // Set to NULL after freeing
+  // Free the wordlists
+  if (ctx->wordlists != NULL) {
+    for (int i = 0; i < LANGUAGE_COUNT; i++) {
+      if (ctx->languages_loaded[i]) {
+        // Free the words array if it exists
+        if (ctx->wordlists[i].words != NULL) {
+          for (size_t j = 0; j < ctx->wordlists[i].word_count; j++) {
+            if (ctx->wordlists[i].words[j] != NULL) {
+              free(ctx->wordlists[i].words[j]);
+            }
+          }
+          free(ctx->wordlists[i].words);
         }
-        // Free the words array
-        free(ctx->wordlists[i].words);
-        ctx->wordlists[i].words = NULL; // Set to NULL after freeing
       }
     }
-    // Free the wordlists array
     free(ctx->wordlists);
-    ctx->wordlists = NULL; // Set to NULL after freeing
   }
 
   // Free the wordlist directory path
-  if (ctx->wordlist_dir) {
+  if (ctx->wordlist_dir != NULL) {
     free(ctx->wordlist_dir);
-    ctx->wordlist_dir = NULL; // Set to NULL after freeing
   }
 
   // Free the context itself
@@ -209,113 +202,99 @@ void mnemonic_cleanup(struct MnemonicContext *ctx) {
  */
 int mnemonic_load_wordlist(struct MnemonicContext *ctx,
                            MnemonicLanguage language) {
-  if (!ctx) {
-    fprintf(stderr, "Error: mnemonic context is NULL\n");
+  // Validate input
+  if (ctx == NULL) {
+    fprintf(stderr, "Error: MnemonicContext is NULL\n");
     return -1;
   }
 
-  if (language >= LANGUAGE_COUNT) {
-    fprintf(stderr, "Invalid language index: %d (max is %d)\n", language,
-            LANGUAGE_COUNT - 1);
+  if (language < 0 || language >= LANGUAGE_COUNT) {
+    fprintf(stderr, "Error: Invalid language specified: %d\n", language);
     return -1;
   }
 
-  /* Check if already loaded */
+  // Check if the wordlist is already loaded
   if (ctx->languages_loaded[language]) {
-    fprintf(stderr, "Language %d already loaded, skipping\n", language);
+    // Already loaded
     return 0;
   }
 
-  /* Build the path to the wordlist file */
+  // Build the path to the wordlist file
   char path[1024];
   snprintf(path, sizeof(path), "%s/%s", ctx->wordlist_dir,
            LANGUAGE_FILES[language]);
 
-  /* Log the path we're trying to access */
-  fprintf(stderr, "Attempting to load wordlist file: %s (language: %s)\n", path,
-          LANGUAGE_NAMES[language]);
-
-  /* Verify if directory exists */
-  struct stat dir_stat;
-  if (stat(ctx->wordlist_dir, &dir_stat) != 0) {
-    fprintf(stderr,
-            "Error: Wordlist directory does not exist: %s (errno: %d, %s)\n",
-            ctx->wordlist_dir, errno, strerror(errno));
-    return -1;
-  }
-
-  if (!S_ISDIR(dir_stat.st_mode)) {
-    fprintf(stderr, "Error: %s is not a directory\n", ctx->wordlist_dir);
-    return -1;
-  }
-
-  /* Open the file */
+  // Check if the file exists and is accessible
   FILE *file = fopen(path, "r");
-  if (!file) {
-    fprintf(stderr, "Error opening wordlist file: %s (errno: %d, %s)\n", path,
-            errno, strerror(errno));
+  if (file == NULL) {
+    fprintf(stderr, "Error: Failed to open wordlist file: %s\n", path);
     return -1;
   }
 
-  /* Initialize the wordlist */
+  // Initialize the wordlist
   Wordlist *wordlist = &ctx->wordlists[language];
-  memset(wordlist, 0, sizeof(Wordlist));
   wordlist->language = language;
+  wordlist->word_count = 0;
 
-  /* Allocate memory for words array */
-  wordlist->words = (char **)malloc(MAX_WORDLIST_SIZE * sizeof(char *));
-  if (!wordlist->words) {
+  // Allocate memory for the words array
+  wordlist->words = calloc(MAX_WORDLIST_SIZE, sizeof(char *));
+  if (wordlist->words == NULL) {
     fprintf(stderr, "Error: Failed to allocate memory for words array\n");
     fclose(file);
     return -1;
   }
 
-  /* Read all words */
-  char line[MAX_WORD_LENGTH + 2]; /* +2 for newline and null terminator */
+  // Read the words from the file
+  char line[MAX_WORD_LENGTH + 2]; // +2 for newline and null terminator
   size_t word_count = 0;
 
   while (fgets(line, sizeof(line), file) && word_count < MAX_WORDLIST_SIZE) {
-    /* Remove trailing newline */
+    // Remove newline character if present
     size_t len = strlen(line);
-    if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+    if (len > 0 && line[len - 1] == '\n') {
       line[len - 1] = '\0';
-      if (len > 1 && line[len - 2] == '\r') {
-        line[len - 2] = '\0';
-      }
+      len--;
     }
 
-    /* Skip empty lines */
-    if (line[0] == '\0') {
+    // Remove carriage return if present
+    if (len > 0 && line[len - 1] == '\r') {
+      line[len - 1] = '\0';
+      len--;
+    }
+
+    // Skip empty lines
+    if (len == 0) {
       continue;
     }
 
-    /* Allocate memory for this word */
-    wordlist->words[word_count] = (char *)malloc(MAX_WORD_LENGTH);
-    if (!wordlist->words[word_count]) {
-      /* Clean up on failure */
+    // Allocate memory for the word
+    wordlist->words[word_count] = strdup(line);
+    if (wordlist->words[word_count] == NULL) {
+      fprintf(stderr, "Error: Failed to allocate memory for word\n");
+
+      // Clean up already allocated words
       for (size_t i = 0; i < word_count; i++) {
         free(wordlist->words[i]);
       }
       free(wordlist->words);
       wordlist->words = NULL;
+
       fclose(file);
       return -1;
     }
 
-    /* Copy the word */
-    strncpy(wordlist->words[word_count], line, MAX_WORD_LENGTH - 1);
-    wordlist->words[word_count][MAX_WORD_LENGTH - 1] = '\0';
     word_count++;
   }
 
   fclose(file);
 
-  /* Make sure we have the correct number of words */
-  if (word_count != 2048) {
-    fprintf(stderr, "Warning: Wordlist %s has %zu words (expected 2048)\n",
-            LANGUAGE_FILES[language], word_count);
+  // Check if we read the correct number of words
+  if (word_count != MAX_WORDLIST_SIZE) {
+    fprintf(stderr, "Warning: Wordlist does not contain %d words (found %zu)\n",
+            MAX_WORDLIST_SIZE, word_count);
   }
 
+  // Update the wordlist
   wordlist->word_count = word_count;
   ctx->languages_loaded[language] = true;
 
