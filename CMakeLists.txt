@@ -332,6 +332,7 @@ set(TEST_SOURCES
     test/test_mnemonic.c
     test/test_wallet.c
     test/test_parser.c
+    test/unity.c
     src/mnemonic.c
     src/wallet.c
     src/seed_parser.c

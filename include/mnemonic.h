@@ -143,3 +143,4 @@ bool mnemonic_word_exists(struct MnemonicContext *ctx, MnemonicLanguage language
 
 #endif /* MNEMONIC_H */
 
+

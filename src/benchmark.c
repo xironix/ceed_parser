@@ -1297,3 +1297,4 @@ static benchmark_result_t __attribute__((unused)) bench_parser(void) {
 
   return result;
 }
+

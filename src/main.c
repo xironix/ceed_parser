@@ -31,6 +31,11 @@
 #endif
 
 /**
+ * @brief Define ENABLE_DEBUG for debug macros
+ */
+#define ENABLE_DEBUG 1
+
+/**
  * @brief Default output file for found seed phrases
  */
 #define DEFAULT_OUTPUT_FILE "found_seeds.txt"
@@ -54,6 +59,11 @@ static volatile bool g_running = true;
  * @brief Flag indicating whether verbose output is enabled
  */
 static bool g_verbose = false;
+
+/**
+ * @brief Flag indicating whether debug output is enabled
+ */
+bool g_debug_enabled = false;
 
 /**
  * @brief Global parser configuration
@@ -89,6 +99,7 @@ void print_usage(const char *program_name) {
       "  -t, --threads N             Number of threads to use (default: %d)\n",
       DEFAULT_THREAD_COUNT);
   printf("  -v, --verbose               Enable verbose output\n");
+  printf("  -D, --debug                 Enable debug output\n");
   printf("  -m, --monero                Enable detection of Monero 25-word "
          "seed phrases\n");
   printf("  -l, --languages LANGS       Comma-separated list of languages to "
@@ -120,6 +131,7 @@ bool parse_args(int argc, char **argv) {
       {"output", required_argument, NULL, 'o'},
       {"threads", required_argument, NULL, 't'},
       {"verbose", no_argument, NULL, 'v'},
+      {"debug", no_argument, NULL, 'D'},
       {"monero", no_argument, NULL, 'm'},
       {"languages", required_argument, NULL, 'l'},
       {"all-languages", no_argument, NULL, 'A'},
@@ -134,7 +146,7 @@ bool parse_args(int argc, char **argv) {
 #endif
       {NULL, 0, NULL, 0}};
 
-  const char *short_options = "ho:t:vml:Aa:rfd:";
+  const char *short_options = "ho:t:vDml:Aa:rfd:";
   char *output_file = DEFAULT_OUTPUT_FILE;
   char *db_file = NULL;
   int thread_count = DEFAULT_THREAD_COUNT;
@@ -186,6 +198,11 @@ bool parse_args(int argc, char **argv) {
 
     case 'v':
       g_verbose = true;
+      break;
+
+    case 'D':
+      g_debug_enabled = true;
+      printf("Debug mode enabled\n");
       break;
 
     case 'm':
@@ -558,6 +575,20 @@ int main(int argc, char **argv) {
   snprintf(log_dir, sizeof(log_dir), "%s/logs", cwd);
   g_config.log_dir = strdup(log_dir);
 
+  /* Set source directory based on the first path in g_config.paths */
+  if (g_config.path_count > 0) {
+    g_config.source_dir = strdup(g_config.paths[0]);
+    if (g_verbose) {
+      printf("Setting scan directory to: %s\n", g_config.source_dir);
+    }
+  } else {
+    g_config.source_dir = strdup(DEFAULT_SCAN_PATH);
+    if (g_verbose) {
+      printf("No paths specified, setting scan directory to: %s\n",
+             g_config.source_dir);
+    }
+  }
+
   if (g_verbose) {
     printf("Using wordlist directory: %s\n", g_config.wordlist_dir);
     printf("Using log directory: %s\n", g_config.log_dir);
@@ -709,6 +740,9 @@ cleanup:
 
   /* Free log directory */
   free((void *)g_config.log_dir);
+
+  /* Free source directory */
+  free((void *)g_config.source_dir);
 
   return result;
 }

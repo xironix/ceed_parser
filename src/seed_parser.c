@@ -27,6 +27,11 @@
 #include "wallet.h"
 
 /**
+ * @brief Reference to global debug flag defined in main.c
+ */
+extern bool g_debug_enabled;
+
+/**
  * @brief Maximum size of a file chunk to read at once (1MB)
  */
 #define DEFAULT_CHUNK_SIZE (1024 * 1024)
@@ -391,23 +396,23 @@ static bool db_phrase_exists(DBController *db, const char *phrase) {
 /**
  * @brief Update parser statistics
  */
-static void update_stats(SeedParser *parser, const char *key, uint64_t value) {
-  pthread_mutex_lock(&parser->stats_lock);
+static void update_stats(SeedParser *parser, const char *key, size_t value) {
+  DEBUG_PRINT("Updating stat: %s += %zu", key, value);
 
+  pthread_mutex_lock(&parser->stats_lock);
   if (strcmp(key, "files_processed") == 0) {
     parser->stats.files_processed += value;
+  } else if (strcmp(key, "files_skipped") == 0) {
+    parser->stats.files_skipped += value;
+  } else if (strcmp(key, "lines_processed") == 0) {
+    parser->stats.lines_processed += value;
   } else if (strcmp(key, "bytes_processed") == 0) {
     parser->stats.bytes_processed += value;
   } else if (strcmp(key, "phrases_found") == 0) {
     parser->stats.phrases_found += value;
-  } else if (strcmp(key, "eth_keys_found") == 0) {
-    parser->stats.eth_keys_found += value;
-  } else if (strcmp(key, "monero_phrases_found") == 0) {
-    parser->stats.monero_phrases_found += value;
   } else if (strcmp(key, "errors") == 0) {
     parser->stats.errors += value;
   }
-
   pthread_mutex_unlock(&parser->stats_lock);
 }
 
@@ -475,24 +480,33 @@ static bool should_skip_file(const char *filename) {
  */
 static void process_mnemonic(SeedParser *parser, const char *mnemonic,
                              const char *source_file) {
+  DEBUG_PRINT("Validating mnemonic: %s", mnemonic);
+
   MnemonicType type;
   MnemonicLanguage language;
 
   /* Validate the mnemonic */
   if (!mnemonic_validate(parser->mnemonic_ctx, mnemonic, &type, &language)) {
+    DEBUG_PRINT_MSG("Mnemonic validation FAILED");
     return;
   }
 
+  DEBUG_PRINT_MSG("Mnemonic validation PASSED");
+
   /* Check if already in database to avoid duplicates */
   if (db_phrase_exists(parser->db, mnemonic)) {
+    DEBUG_PRINT_MSG("Mnemonic already exists in database");
     return;
   }
 
   /* Add to database */
   if (db_add_phrase(parser->db, mnemonic, type, language) != 0) {
+    DEBUG_PRINT_MSG("Error adding mnemonic to database");
     update_stats(parser, "errors", 1);
     return;
   }
+
+  DEBUG_PRINT_MSG("Successfully added mnemonic to database");
 
   /* Update statistics based on type */
   if (type == MNEMONIC_BIP39) {
@@ -721,6 +735,9 @@ static void process_word_window(SeedParser *parser, char **word_window,
  * @brief Process a file looking for seed phrases
  */
 static int process_file(SeedParser *parser, const char *filepath) {
+  /* Add debug print at beginning */
+  DEBUG_PRINT("Processing file: %s", filepath);
+
   /* Make a temporary non-const copy for basename which doesn't accept const
    * char* */
   char filepath_copy[PATH_MAX];
@@ -734,6 +751,7 @@ static int process_file(SeedParser *parser, const char *filepath) {
   /* Check if we should parse this file */
   if (should_skip_extension(filepath) ||
       should_skip_file(basename(filepath_copy))) {
+    DEBUG_PRINT("Skipping file due to extension or name: %s", filepath);
     return 0;
   }
 
@@ -879,6 +897,17 @@ static void *worker_thread(void *arg) {
  * @brief Scan a directory recursively
  */
 static int scan_directory(SeedParser *parser, const char *dirpath) {
+  DEBUG_PRINT("Scanning directory: %s", dirpath);
+
+  /* Check if this is a file rather than a directory */
+  struct stat st;
+  if (stat(dirpath, &st) == 0 && S_ISREG(st.st_mode)) {
+    DEBUG_PRINT("Path is a file, not a directory, processing directly: %s",
+                dirpath);
+    process_file(parser, dirpath);
+    return 0;
+  }
+
   DIR *dir = opendir(dirpath);
   if (!dir) {
     fprintf(stderr, "Error opening directory %s: %s\n", dirpath,
@@ -894,8 +923,11 @@ static int scan_directory(SeedParser *parser, const char *dirpath) {
       continue;
     }
 
+    DEBUG_PRINT("Found entry: %s", entry->d_name);
+
     /* Skip directories we don't want to scan */
     if (should_skip_dir(entry->d_name)) {
+      DEBUG_PRINT_MSG("Skipping directory");
       continue;
     }
 
@@ -906,14 +938,17 @@ static int scan_directory(SeedParser *parser, const char *dirpath) {
     /* Check if it's a directory */
     struct stat st;
     if (stat(path, &st) != 0) {
+      DEBUG_PRINT("Failed to stat path: %s (error: %s)", path, strerror(errno));
       continue;
     }
 
     if (S_ISDIR(st.st_mode)) {
       /* Recursively scan the directory */
+      DEBUG_PRINT("Recursively scanning directory: %s", path);
       scan_directory(parser, path);
     } else if (S_ISREG(st.st_mode)) {
       /* Queue the file for processing */
+      DEBUG_PRINT("Queueing file for processing: %s", path);
       pthread_mutex_lock(&parser->queue_lock);
 
       /* Wait if the queue is full */

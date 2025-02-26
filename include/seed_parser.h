@@ -199,4 +199,22 @@ bool seed_parser_is_complete(void);
  */
 void seed_parser_handle_signal(int signum);
 
+/**
+ * @brief Debug macro for conditional debug output
+ */
+#ifdef ENABLE_DEBUG
+#define DEBUG_PRINT_MSG(msg) \
+    do { if (g_debug_enabled) fprintf(stderr, "DEBUG: %s\n", msg); } while (0)
+#define DEBUG_PRINT(fmt, ...) \
+    do { if (g_debug_enabled) fprintf(stderr, "DEBUG: " fmt "\n", ##__VA_ARGS__); } while (0)
+#else
+#define DEBUG_PRINT_MSG(msg) do {} while (0)
+#define DEBUG_PRINT(fmt, ...) do {} while (0)
+#endif
+
+/**
+ * @brief Global debug flag that can be toggled at runtime
+ */
+extern bool g_debug_enabled;
+
 #endif /* SEED_PARSER_H */

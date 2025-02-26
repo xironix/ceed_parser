@@ -121,44 +121,47 @@ static void sha256(const uint8_t *input, size_t input_len, uint8_t *output) {
  * @brief Initialize the mnemonic module
  */
 struct MnemonicContext *mnemonic_init(const char *wordlist_dir) {
+  // Add debug message to track initialization
   fprintf(stderr, "Initializing mnemonic with directory: %s\n",
           wordlist_dir ? wordlist_dir : "NULL");
 
+  // Validate wordlist_dir is not NULL
   if (!wordlist_dir) {
     fprintf(stderr, "Error: wordlist_dir is NULL\n");
     return NULL;
   }
 
+  // Allocate context - single allocation point
   struct MnemonicContext *ctx =
-      (struct MnemonicContext *)malloc(sizeof(struct MnemonicContext));
+      (struct MnemonicContext *)calloc(1, sizeof(struct MnemonicContext));
   if (!ctx) {
     fprintf(stderr, "Error: Failed to allocate memory for mnemonic context\n");
     return NULL;
   }
 
+  // Use calloc instead of malloc+memset for safer initialization
   fprintf(stderr, "Allocated context at %p\n", (void *)ctx);
-  memset(ctx, 0, sizeof(struct MnemonicContext));
 
+  // Duplicate the wordlist directory path
   ctx->wordlist_dir = strdup(wordlist_dir);
   if (!ctx->wordlist_dir) {
     fprintf(stderr, "Error: Failed to duplicate wordlist directory path\n");
-    free(ctx);
+    free(ctx); // Free the context if path duplication fails
     return NULL;
   }
 
   fprintf(stderr, "Using wordlist directory: %s\n", ctx->wordlist_dir);
 
-  // Allocate memory for wordlists
-  ctx->wordlists = (Wordlist *)malloc(sizeof(Wordlist) * LANGUAGE_COUNT);
+  // Allocate memory for wordlists using calloc for zero-initialization
+  ctx->wordlists = (Wordlist *)calloc(LANGUAGE_COUNT, sizeof(Wordlist));
   if (!ctx->wordlists) {
-    free(ctx->wordlist_dir);
-    free(ctx);
+    fprintf(stderr, "Error: Failed to allocate memory for wordlists\n");
+    free(ctx->wordlist_dir); // Free the path if wordlist allocation fails
+    free(ctx);               // Free the context
     return NULL;
   }
 
-  // Initialize wordlists
-  memset(ctx->wordlists, 0, sizeof(Wordlist) * LANGUAGE_COUNT);
-  memset(ctx->languages_loaded, 0, sizeof(bool) * LANGUAGE_COUNT);
+  // No need for memset with calloc
   ctx->initialized = true;
 
   return ctx;
@@ -169,7 +172,7 @@ struct MnemonicContext *mnemonic_init(const char *wordlist_dir) {
  */
 void mnemonic_cleanup(struct MnemonicContext *ctx) {
   if (!ctx) {
-    return;
+    return; // Nothing to clean up
   }
 
   // Free wordlists
@@ -179,17 +182,23 @@ void mnemonic_cleanup(struct MnemonicContext *ctx) {
         // Free each word
         for (size_t j = 0; j < ctx->wordlists[i].word_count; j++) {
           free(ctx->wordlists[i].words[j]);
+          ctx->wordlists[i].words[j] = NULL; // Set to NULL after freeing
         }
         // Free the words array
         free(ctx->wordlists[i].words);
+        ctx->wordlists[i].words = NULL; // Set to NULL after freeing
       }
     }
     // Free the wordlists array
     free(ctx->wordlists);
+    ctx->wordlists = NULL; // Set to NULL after freeing
   }
 
   // Free the wordlist directory path
-  free(ctx->wordlist_dir);
+  if (ctx->wordlist_dir) {
+    free(ctx->wordlist_dir);
+    ctx->wordlist_dir = NULL; // Set to NULL after freeing
+  }
 
   // Free the context itself
   free(ctx);

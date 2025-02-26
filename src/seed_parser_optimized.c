@@ -151,8 +151,8 @@ typedef struct {
 } optimized_wordlist_t;
 
 // Global array of optimized wordlists
-static optimized_wordlist_t *g_wordlists = NULL;
-static size_t g_num_wordlists = 0;
+static optimized_wordlist_t *g_wordlists __attribute__((unused)) = NULL;
+static size_t g_num_wordlists __attribute__((unused)) = 0;
 
 // Structure for a validation task
 typedef struct {
@@ -391,7 +391,8 @@ static size_t generate_addresses_parallel(const char *phrase,
 
   // Copy addresses
   size_t generated = 0;
-  for (unsigned int i = 0; i < count && i < wallet.address_count; i++) {
+  for (unsigned int i = 0; i < count && i < (unsigned int)wallet.address_count;
+       i++) {
     if (wallet.addresses[i][0] == '\0') {
       // Skip empty addresses
       continue;

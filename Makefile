@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -O3 -march=native -pthread -I./include -I/opt/homebrew/include -I/usr/local/include
+CFLAGS = -Wall -Wextra -pedantic -O3 -march=native -pthread -I./include -I/opt/homebrew/include -I/usr/local/include -DENABLE_DEBUG
 DEBUG_FLAGS = -g -DDEBUG
 LDFLAGS = -L/opt/homebrew/lib -L/usr/local/lib -lcrypto -lpthread -lsqlite3
 

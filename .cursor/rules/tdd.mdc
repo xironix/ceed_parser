@@ -1,0 +1,12 @@
+---
+description: Test-Driven Development
+globs: *.c, *.cpp, *.asm, *.h
+alwaysApply: false
+---
+# Test-Driven Development
+- Every new feature must include updated tests.
+- Run tests after every implementation change.
+- Security tests are mandatory for code handling input validation, memory management, or cryptographic operations.
+- Performance benchmarks should be included for critical optimizations.
+- Unit, integration, and regression tests must be considered before finalizing any feature.
+- TDD can be bypassed if explicitly requested, but this should be the exception, not the rule.
