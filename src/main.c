@@ -13,16 +13,16 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "seed_parser.h"
-#include "mnemonic.h"
-#include "wallet.h"
+#include "../include/seed_parser.h"
+#include "../include/mnemonic.h"
+#include "../include/wallet.h"
 
 #ifdef USE_OPTIMIZED_PARSER
-#include "seed_parser_optimized.h"
-#include "cache.h"
-#include "memory_pool.h"
-#include "thread_pool.h"
-#include "simd_utils.h"
+#include "../include/seed_parser_optimized.h"
+#include "../include/cache.h"
+#include "../include/memory_pool.h"
+#include "../include/thread_pool.h"
+#include "../include/simd_utils.h"
 #endif
 
 /**
@@ -371,9 +371,6 @@ void print_config(void) {
             case LANGUAGE_KOREAN:
                 lang_name = "Korean";
                 break;
-            case LANGUAGE_MONERO_ENGLISH:
-                lang_name = "Monero";
-                break;
             case LANGUAGE_COUNT:
                 lang_name = "Unknown";
                 break;
@@ -475,9 +472,6 @@ void seed_found_callback(const char *file_path,
         case LANGUAGE_KOREAN:
             lang_str = "Korean";
             break;
-        case LANGUAGE_MONERO_ENGLISH:
-            lang_str = "Monero";
-            break;
         case LANGUAGE_COUNT:
             lang_str = "Unknown";
             break;
@@ -509,20 +503,22 @@ int main(int argc, char **argv) {
     }
     
     /* Initialize modules */
-    if (mnemonic_init() != 0) {
+    struct MnemonicContext *mnemonic_ctx;
+    mnemonic_ctx = mnemonic_init("data/wordlist");
+    if (mnemonic_ctx == NULL) {
         fprintf(stderr, "Error: Failed to initialize mnemonic module\n");
         return EXIT_FAILURE;
     }
     
     if (wallet_init() != 0) {
         fprintf(stderr, "Error: Failed to initialize wallet module\n");
-        mnemonic_cleanup();
+        mnemonic_cleanup(mnemonic_ctx);
         return EXIT_FAILURE;
     }
     
     /* Load wordlists */
     for (size_t i = 0; i < g_config.language_count; i++) {
-        if (mnemonic_load_wordlist(g_config.languages[i]) != 0) {
+        if (mnemonic_load_wordlist(mnemonic_ctx, g_config.languages[i]) != 0) {
             fprintf(stderr, "Error: Failed to load wordlist for language %d\n", 
                     g_config.languages[i]);
             result = EXIT_FAILURE;
@@ -531,11 +527,15 @@ int main(int argc, char **argv) {
     }
     
     /* Start seed parser */
-    if (seed_parser_init(&g_config, &g_stats, progress_callback, seed_found_callback) != 0) {
+    if (seed_parser_init(&g_config) != true) {
         fprintf(stderr, "Error: Failed to initialize seed parser\n");
         result = EXIT_FAILURE;
         goto cleanup;
     }
+    
+    /* Register callbacks */
+    seed_parser_register_progress_callback(progress_callback);
+    seed_parser_register_seed_found_callback(seed_found_callback);
     
     /* Start seed parser */
     time_t start_time = time(NULL);
@@ -567,7 +567,7 @@ cleanup:
     /* Clean up resources */
     seed_parser_cleanup();
     wallet_cleanup();
-    mnemonic_cleanup();
-    
+    mnemonic_cleanup(mnemonic_ctx);
+
     return result;
 } 

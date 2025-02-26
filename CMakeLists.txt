@@ -78,6 +78,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${OPENSSL_INCLUDE_DIR}
     ${SQLite3_INCLUDE_DIRS}
+    /Library/Frameworks/GStreamer.framework/Headers
 )
 
 # Source files
@@ -192,7 +193,11 @@ add_custom_target(uninstall
 # Configure benchmark build option
 option(BUILD_BENCHMARKS "Build benchmarking tools" ON)
 if(BUILD_BENCHMARKS)
-    add_executable(bench_ceed_parser src/benchmark.c ${SOURCES})
+    # Create a copy of SOURCES without main.c for the benchmark
+    set(BENCHMARK_SOURCES ${SOURCES})
+    list(REMOVE_ITEM BENCHMARK_SOURCES src/main.c)
+    
+    add_executable(bench_ceed_parser src/benchmark.c ${BENCHMARK_SOURCES})
     target_compile_definitions(bench_ceed_parser PRIVATE -DBENCHMARK_MODE)
     target_link_libraries(bench_ceed_parser
         ${OPENSSL_LIBRARIES}

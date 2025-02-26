@@ -31,8 +31,10 @@
 // Default scan path
 #define DEFAULT_SCAN_PATH "."
 
-// Maximum length for file paths
+// Maximum length for file paths (if not already defined)
+#ifndef MAX_FILE_PATH
 #define MAX_FILE_PATH 1024
+#endif
 
 /**
  * @brief Configuration options for the seed phrase parser
@@ -64,11 +66,15 @@ typedef struct {
     bool show_performance;           // Whether to show performance metrics
     bool show_cpu_info;              // Whether to show CPU information
     
-    // Additional fields needed by seed_parser.c
+    // Added fields needed by seed_parser.c
     const char *db_path;             // Path to the database file (legacy - use db_file instead)
     bool parse_eth;                  // Whether to parse Ethereum private keys
     const char **exwords;            // Array of excluded words
     const char *wordlist_dir;        // Directory containing wordlists
+    const char **wordlist_paths;     // Paths to wordlist files
+    size_t wordlist_count;           // Number of wordlist files
+    size_t chunk_size;               // Size of chunks to process at once
+    int max_exwords;                 // Maximum number of extra words allowed
 } SeedParserConfig;
 
 /**
@@ -95,7 +101,7 @@ typedef struct {
  * @param config Pointer to the configuration options
  * @return int 0 on success, non-zero on failure
  */
-int seed_parser_init(const SeedParserConfig *config);
+bool seed_parser_init(const SeedParserConfig *config);
 
 /**
  * @brief Validate a mnemonic phrase

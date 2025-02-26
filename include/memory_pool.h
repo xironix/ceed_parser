@@ -9,9 +9,13 @@
 #ifndef MEMORY_POOL_H
 #define MEMORY_POOL_H
 
-#include <stddef.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <pthread.h>
+
+// Default alignment for memory allocations
+#define ALIGNMENT 16
 
 // Default block size for the memory pool (64KB)
 #define DEFAULT_BLOCK_SIZE (64 * 1024)
@@ -31,6 +35,7 @@ typedef struct memory_pool memory_pool_t;
 // Memory block structure
 typedef struct memory_block {
     char* memory;                       // Allocated memory
+    char* data;                         // Pointer to the data area (same as memory, for API consistency)
     size_t size;                        // Size of allocated memory
     size_t used;                        // Amount of used memory
     struct memory_block* next;          // Next block in the list
@@ -39,6 +44,7 @@ typedef struct memory_block {
 // Small memory block structure
 typedef struct small_block {
     char* memory;                       // Allocated memory
+    char* data;                         // Pointer to the data area
     size_t object_size;                 // Size of each object
     size_t capacity;                    // Maximum number of objects
     size_t used;                        // Number of used objects
@@ -49,20 +55,26 @@ typedef struct small_block {
 // Memory pool structure
 struct memory_pool {
     memory_block_t* blocks;             // List of memory blocks
+    memory_block_t* current_block;      // Current block for allocations
     small_block_t* small_blocks;        // List of small memory blocks
     size_t block_size;                  // Size of each memory block
     size_t max_blocks;                  // Maximum number of blocks
     size_t small_size;                  // Maximum size for small objects
     size_t small_capacity;              // Number of small objects per block
     size_t total_allocated;             // Total memory allocated
+    size_t max_allocated;               // Maximum memory allocated
     size_t total_used;                  // Total memory used
     size_t block_count;                 // Number of blocks
     size_t small_block_count;           // Number of small blocks
     size_t allocations;                 // Number of allocations
+    size_t num_allocs;                  // Number of allocations (alias)
+    size_t num_frees;                   // Number of deallocations
     size_t small_allocations;           // Number of small allocations
+    size_t small_used;                  // Number of small blocks used
     size_t cache_misses;                // Number of cache misses
     size_t wasted;                      // Amount of wasted memory
     bool enable_stats;                  // Enable statistics
+    pthread_key_t tls_key;              // Thread-local storage key
 };
 
 // Memory pool statistics structure

@@ -44,7 +44,7 @@ typedef struct {
 
 // Bloom filter structure
 typedef struct {
-    uint8_t* bits;       // Bit array
+    uint64_t* bits;      // Bit array
     size_t size;         // Size of bit array in bits
     size_t hash_funcs;   // Number of hash functions
     size_t items;        // Number of items in the filter
@@ -96,12 +96,12 @@ int simd_strcmp(const char* str1, const char* str2);
 /**
  * @brief SIMD-accelerated binary search
  * 
- * @param array Array of strings
- * @param n Number of elements
- * @param search String to search for
+ * @param words Array of strings
+ * @param word_count Number of elements
+ * @param target String to search for
  * @return true if found
  */
-bool simd_binary_search(char** array, size_t n, const char* search);
+bool simd_binary_search(const char** words, size_t word_count, const char* target);
 
 /**
  * @brief SIMD-accelerated case-insensitive string comparison

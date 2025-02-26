@@ -81,4 +81,16 @@ static UnityContext unity_ctx = {0};
         return unity_ctx.tests_failed == 0; \
     } while (0)
 
+// Main test suite macros
+#define TEST_SUITE_BEGIN() \
+    do { \
+        printf("\n==== Starting Test Suite Runner ====\n"); \
+    } while (0)
+
+#define TEST_SUITE_END() \
+    do { \
+        printf("\n==== Test Suite Runner Complete ====\n"); \
+        return 0; \
+    } while (0)
+
 #endif /* UNITY_H */ 

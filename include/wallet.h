@@ -21,12 +21,46 @@
 // Maximum length of a private key in hex format
 #define MAX_PRIVATE_KEY_LENGTH 128
 
+// Maximum length of a file path
+#define MAX_FILE_PATH 256
+
 // Wallet types
 typedef enum {
     WALLET_TYPE_BITCOIN   = 1,
     WALLET_TYPE_ETHEREUM  = 2,
     WALLET_TYPE_MONERO    = 3
 } WalletType;
+
+/**
+ * @brief Cryptocurrency type
+ */
+typedef enum {
+    CRYPTO_UNKNOWN = 0, // Unknown
+    CRYPTO_BTC = 1,  // Bitcoin
+    CRYPTO_ETH = 2,  // Ethereum
+    CRYPTO_XMR = 3,  // Monero
+    CRYPTO_ETC = 4,  // Ethereum Classic
+    CRYPTO_LTC = 5,  // Litecoin
+    CRYPTO_BCH = 6,  // Bitcoin Cash
+    CRYPTO_BSV = 7,  // Bitcoin SV
+    CRYPTO_BNB = 8,  // Binance Chain
+    CRYPTO_DOGE = 9, // Dogecoin
+    CRYPTO_DASH = 10, // Dash
+    CRYPTO_ZEC = 11,  // Zcash
+    CRYPTO_TRX = 12   // Tron
+} CryptoType;
+
+/**
+ * @brief Address type
+ */
+typedef enum {
+    ADDRESS_UNKNOWN = 0,   // Unknown
+    ADDRESS_STANDARD = 1,  // Standard address
+    ADDRESS_P2PKH = 2,     // Pay to Public Key Hash (Legacy)
+    ADDRESS_P2SH = 3,      // Pay to Script Hash (SegWit-compatible)
+    ADDRESS_P2WPKH = 4,    // Pay to Witness Public Key Hash (Native SegWit)
+    ADDRESS_SUBADDRESS = 5 // Subaddress (e.g., Monero)
+} AddressType;
 
 // Structure to hold wallet information
 typedef struct {
@@ -38,6 +72,8 @@ typedef struct {
     int address_count;                             // Number of addresses generated
     char private_keys[MAX_WALLET_ADDRESSES][MAX_PRIVATE_KEY_LENGTH]; // Private keys (if stored)
     bool has_private_keys;                         // Whether private keys are stored
+    AddressType address_type;                      // Type of address generated
+    char path[MAX_FILE_PATH];                      // Path to the wallet file
 } Wallet;
 
 /**

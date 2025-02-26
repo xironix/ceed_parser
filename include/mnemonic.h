@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // Maximum number of words in a mnemonic phrase
 #define MAX_MNEMONIC_WORDS 25
@@ -129,6 +130,16 @@ bool mnemonic_is_monero(struct MnemonicContext *ctx, const char *mnemonic);
  */
 int mnemonic_to_entropy(struct MnemonicContext *ctx, const char *mnemonic, 
                         uint8_t *entropy, size_t *entropy_len);
+
+/**
+ * Check if a word exists in a specific language wordlist
+ *
+ * @param ctx The mnemonic context
+ * @param language The language to check
+ * @param word The word to check
+ * @return true if the word exists, false otherwise
+ */
+bool mnemonic_word_exists(struct MnemonicContext *ctx, MnemonicLanguage language, const char *word);
 
 #endif /* MNEMONIC_H */
 
