@@ -1260,8 +1260,8 @@ void seed_parser_cleanup(void) {
     g_parser.db = NULL;
   }
 
-  /* Clean up mnemonic module */
-  if (g_parser.mnemonic_ctx) {
+  /* Clean up mnemonic module only if it's not the global context */
+  if (g_parser.mnemonic_ctx && g_parser.mnemonic_ctx != g_mnemonic_ctx) {
     mnemonic_cleanup(g_parser.mnemonic_ctx);
     g_parser.mnemonic_ctx = NULL;
   }

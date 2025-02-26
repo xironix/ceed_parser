@@ -553,8 +553,14 @@ int main(int argc, char **argv) {
   snprintf(wordlist_dir, sizeof(wordlist_dir), "%s/data", cwd);
   g_config.wordlist_dir = strdup(wordlist_dir);
 
+  /* Set a valid log directory */
+  char log_dir[PATH_MAX];
+  snprintf(log_dir, sizeof(log_dir), "%s/logs", cwd);
+  g_config.log_dir = strdup(log_dir);
+
   if (g_verbose) {
     printf("Using wordlist directory: %s\n", g_config.wordlist_dir);
+    printf("Using log directory: %s\n", g_config.log_dir);
   }
 
   /* Set up wordlist paths based on absolute directory */
@@ -700,6 +706,9 @@ cleanup:
 
   /* Free wordlist directory */
   free((void *)g_config.wordlist_dir);
+
+  /* Free log directory */
+  free((void *)g_config.log_dir);
 
   return result;
 }
