@@ -159,6 +159,11 @@ static const size_t DEFAULT_EXCLUDED_WORDS_COUNT =
     sizeof(DEFAULT_EXCLUDED_WORDS) / sizeof(DEFAULT_EXCLUDED_WORDS[0]);
 
 /**
+ * @brief Add this near the top of the file, with other globals
+ */
+static struct MnemonicContext *g_mnemonic_ctx = NULL;
+
+/**
  * @brief Initialize the database controller
  */
 static DBController *db_init(const SeedParserConfig *config) {
@@ -1084,6 +1089,13 @@ int seed_parser_config_init(SeedParserConfig *config) {
 }
 
 /**
+ * @brief Set the global mnemonic context
+ */
+void seed_parser_set_mnemonic_ctx(struct MnemonicContext *ctx) {
+  g_mnemonic_ctx = ctx;
+}
+
+/**
  * @brief Initialize the seed parser with the given configuration options
  */
 bool seed_parser_init(const SeedParserConfig *config) {
@@ -1104,11 +1116,16 @@ bool seed_parser_init(const SeedParserConfig *config) {
     mutable_config->max_exwords = DEFAULT_EXCLUDED_WORDS_COUNT;
   }
 
-  /* Initialize the mnemonic subsystem */
-  g_parser.mnemonic_ctx = mnemonic_init(config->wordlist_dir);
-  if (!g_parser.mnemonic_ctx) {
-    fprintf(stderr, "Error: Failed to initialize mnemonic subsystem\n");
-    return false;
+  /* Use the global mnemonic context if provided, otherwise create a new one */
+  if (g_mnemonic_ctx) {
+    g_parser.mnemonic_ctx = g_mnemonic_ctx;
+  } else {
+    /* Initialize the mnemonic subsystem */
+    g_parser.mnemonic_ctx = mnemonic_init(config->wordlist_dir);
+    if (!g_parser.mnemonic_ctx) {
+      fprintf(stderr, "Error: Failed to initialize mnemonic subsystem\n");
+      return false;
+    }
   }
 
   /* Initialize thread management */
@@ -1147,19 +1164,6 @@ bool seed_parser_init(const SeedParserConfig *config) {
   if (!g_parser.task_queue) {
     seed_parser_cleanup();
     return false;
-  }
-
-  /* Load enabled languages */
-  for (size_t i = 0; i < LANGUAGE_COUNT; i++) {
-    if (config->languages[i] == LANGUAGE_COUNT) {
-      break;
-    }
-
-    if (mnemonic_load_wordlist(g_parser.mnemonic_ctx, config->languages[i]) !=
-        0) {
-      fprintf(stderr, "Warning: Failed to load wordlist for language %d\n",
-              config->languages[i]);
-    }
   }
 
   /* Initialize database */

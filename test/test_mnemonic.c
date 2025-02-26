@@ -9,13 +9,19 @@ static bool initialized = false;
 
 // Test wordlist paths (for reference)
 static const char *__attribute__((unused)) wordlist_paths[] = {
-    "../data/english.txt", "../data/spanish.txt", "../data/monero_english.txt"};
+    "./data/english.txt", "./data/spanish.txt", "./data/monero_english.txt"};
 
 // Setup function for mnemonic tests
 static void test_setup(void) {
   if (!initialized) {
-    ctx = *mnemonic_init("../data");
-    initialized = true;
+    struct MnemonicContext *ctx_ptr = mnemonic_init("./data");
+    if (ctx_ptr) {
+      ctx = *ctx_ptr;
+      free(ctx_ptr);
+      initialized = true;
+    } else {
+      printf("Failed to initialize mnemonic context\n");
+    }
   }
 }
 
@@ -79,7 +85,25 @@ bool run_mnemonic_tests(void) {
   test_teardown();
 
   if (initialized) {
-    mnemonic_cleanup(&ctx);
+    // We only need to free wordlists and wordlist_dir, not the ctx itself
+    // since it's a stack variable now
+    if (ctx.wordlists) {
+      for (size_t i = 0; i < LANGUAGE_COUNT; i++) {
+        if (ctx.languages_loaded[i] && ctx.wordlists[i].words) {
+          // Free each word
+          for (size_t j = 0; j < ctx.wordlists[i].word_count; j++) {
+            free(ctx.wordlists[i].words[j]);
+          }
+          // Free the words array
+          free(ctx.wordlists[i].words);
+        }
+      }
+      // Free the wordlists array
+      free(ctx.wordlists);
+    }
+    // Free the wordlist directory path
+    free(ctx.wordlist_dir);
+
     initialized = false;
   }
 

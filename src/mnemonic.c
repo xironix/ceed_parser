@@ -5,11 +5,13 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 // Remove OpenSSL dependencies
 // #include <openssl/sha.h>
@@ -119,23 +121,32 @@ static void sha256(const uint8_t *input, size_t input_len, uint8_t *output) {
  * @brief Initialize the mnemonic module
  */
 struct MnemonicContext *mnemonic_init(const char *wordlist_dir) {
+  fprintf(stderr, "Initializing mnemonic with directory: %s\n",
+          wordlist_dir ? wordlist_dir : "NULL");
+
   if (!wordlist_dir) {
+    fprintf(stderr, "Error: wordlist_dir is NULL\n");
     return NULL;
   }
 
   struct MnemonicContext *ctx =
       (struct MnemonicContext *)malloc(sizeof(struct MnemonicContext));
   if (!ctx) {
+    fprintf(stderr, "Error: Failed to allocate memory for mnemonic context\n");
     return NULL;
   }
 
+  fprintf(stderr, "Allocated context at %p\n", (void *)ctx);
   memset(ctx, 0, sizeof(struct MnemonicContext));
 
   ctx->wordlist_dir = strdup(wordlist_dir);
   if (!ctx->wordlist_dir) {
+    fprintf(stderr, "Error: Failed to duplicate wordlist directory path\n");
     free(ctx);
     return NULL;
   }
+
+  fprintf(stderr, "Using wordlist directory: %s\n", ctx->wordlist_dir);
 
   // Allocate memory for wordlists
   ctx->wordlists = (Wordlist *)malloc(sizeof(Wordlist) * LANGUAGE_COUNT);
@@ -189,12 +200,20 @@ void mnemonic_cleanup(struct MnemonicContext *ctx) {
  */
 int mnemonic_load_wordlist(struct MnemonicContext *ctx,
                            MnemonicLanguage language) {
-  if (!ctx || language >= LANGUAGE_COUNT) {
+  if (!ctx) {
+    fprintf(stderr, "Error: mnemonic context is NULL\n");
+    return -1;
+  }
+
+  if (language >= LANGUAGE_COUNT) {
+    fprintf(stderr, "Invalid language index: %d (max is %d)\n", language,
+            LANGUAGE_COUNT - 1);
     return -1;
   }
 
   /* Check if already loaded */
   if (ctx->languages_loaded[language]) {
+    fprintf(stderr, "Language %d already loaded, skipping\n", language);
     return 0;
   }
 
@@ -203,10 +222,29 @@ int mnemonic_load_wordlist(struct MnemonicContext *ctx,
   snprintf(path, sizeof(path), "%s/%s", ctx->wordlist_dir,
            LANGUAGE_FILES[language]);
 
+  /* Log the path we're trying to access */
+  fprintf(stderr, "Attempting to load wordlist file: %s (language: %s)\n", path,
+          LANGUAGE_NAMES[language]);
+
+  /* Verify if directory exists */
+  struct stat dir_stat;
+  if (stat(ctx->wordlist_dir, &dir_stat) != 0) {
+    fprintf(stderr,
+            "Error: Wordlist directory does not exist: %s (errno: %d, %s)\n",
+            ctx->wordlist_dir, errno, strerror(errno));
+    return -1;
+  }
+
+  if (!S_ISDIR(dir_stat.st_mode)) {
+    fprintf(stderr, "Error: %s is not a directory\n", ctx->wordlist_dir);
+    return -1;
+  }
+
   /* Open the file */
   FILE *file = fopen(path, "r");
   if (!file) {
-    fprintf(stderr, "Error opening wordlist file: %s\n", path);
+    fprintf(stderr, "Error opening wordlist file: %s (errno: %d, %s)\n", path,
+            errno, strerror(errno));
     return -1;
   }
 
@@ -218,6 +256,7 @@ int mnemonic_load_wordlist(struct MnemonicContext *ctx,
   /* Allocate memory for words array */
   wordlist->words = (char **)malloc(MAX_WORDLIST_SIZE * sizeof(char *));
   if (!wordlist->words) {
+    fprintf(stderr, "Error: Failed to allocate memory for words array\n");
     fclose(file);
     return -1;
   }

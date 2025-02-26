@@ -162,10 +162,24 @@ char* memory_pool_strdup(memory_pool_t* pool, const char* str);
 void memory_pool_free(memory_pool_t* pool, void* ptr);
 
 /**
- * @brief Get statistics for a memory pool
+ * @brief Get detailed statistics about a memory pool
  * 
- * @param pool Memory pool to get statistics for
- * @param stats Pointer to a memory_pool_stats_t structure to fill
+ * @param pool Pointer to the memory pool
+ * @param total_allocated Pointer to store the total allocated memory
+ * @param max_allocated Pointer to store the maximum allocated memory
+ * @param num_allocs Pointer to store the number of allocations
+ * @param num_frees Pointer to store the number of deallocations
+ * @param cache_misses Pointer to store the number of cache misses
+ */
+void memory_pool_get_detailed_stats(memory_pool_t* pool, size_t* total_allocated, 
+                           size_t* max_allocated, size_t* num_allocs, 
+                           size_t* num_frees, size_t* cache_misses);
+
+/**
+ * @brief Get statistics about a memory pool
+ * 
+ * @param pool Pointer to the memory pool
+ * @param stats Pointer to the stats structure to fill
  */
 void memory_pool_get_stats(memory_pool_t* pool, memory_pool_stats_t* stats);
 

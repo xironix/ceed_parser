@@ -12,7 +12,7 @@ static char test_file_path[256];
 
 // Wordlist paths for testing
 static const char *wordlist_paths[] = {
-    "../data/english.txt", "../data/spanish.txt", "../data/monero_english.txt"};
+    "./data/english.txt", "./data/spanish.txt", "./data/monero_english.txt"};
 
 // Helper function to create a temporary test file with a seed phrase
 static bool create_test_file(const char *seed_phrase) {
@@ -29,9 +29,7 @@ static bool create_test_file(const char *seed_phrase) {
 
   fclose(f);
   return true;
-}
-
-// Helper function to remove the temporary test file
+} // Helper function to remove the temporary test file
 static void remove_test_file(void) {
   if (test_file_path[0] != '\0') {
     unlink(test_file_path);

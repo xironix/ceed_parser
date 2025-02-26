@@ -533,4 +533,37 @@ void *memory_pool_malloc(memory_pool_t *pool, size_t size) {
   return memory_pool_alloc(pool, size);
 }
 
+/**
+ * @brief Get detailed statistics about a memory pool
+ */
+void memory_pool_get_detailed_stats(memory_pool_t *pool,
+                                    size_t *total_allocated,
+                                    size_t *max_allocated, size_t *num_allocs,
+                                    size_t *num_frees, size_t *cache_misses) {
+  if (!pool) {
+    if (total_allocated)
+      *total_allocated = 0;
+    if (max_allocated)
+      *max_allocated = 0;
+    if (num_allocs)
+      *num_allocs = 0;
+    if (num_frees)
+      *num_frees = 0;
+    if (cache_misses)
+      *cache_misses = 0;
+    return;
+  }
+
+  if (total_allocated)
+    *total_allocated = pool->total_allocated;
+  if (max_allocated)
+    *max_allocated = pool->max_allocated;
+  if (num_allocs)
+    *num_allocs = pool->num_allocs;
+  if (num_frees)
+    *num_frees = pool->num_frees;
+  if (cache_misses)
+    *cache_misses = pool->cache_misses;
+}
+
 #endif // DISABLE_MEMORY_POOL

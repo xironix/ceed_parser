@@ -96,6 +96,13 @@ typedef struct {
 } SeedParserStats;
 
 /**
+ * @brief Set the global mnemonic context to be used by the seed parser
+ * 
+ * @param ctx The mnemonic context to use
+ */
+void seed_parser_set_mnemonic_ctx(struct MnemonicContext *ctx);
+
+/**
  * @brief Initialize the seed parser with the given configuration options
  * 
  * @param config Pointer to the configuration options
