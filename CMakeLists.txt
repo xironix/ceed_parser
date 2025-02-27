@@ -93,6 +93,7 @@ set(SOURCES
     src/thread_pool.c
     src/cache.c
     src/seed_parser_optimized.c
+    src/logger.c
 )
 
 # Option to use optimized seed parser
@@ -172,11 +173,15 @@ install(DIRECTORY data/ DESTINATION share/ceed_parser/data)
 # Create data directory in build directory
 file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 
-# Copy wordlists to build directory
+# Create symlinks to wordlists in build directory instead of copying
 file(GLOB WORDLISTS "data/*.txt")
 foreach(WORDLIST ${WORDLISTS})
     get_filename_component(WORDLIST_NAME ${WORDLIST} NAME)
-    configure_file(${WORDLIST} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/${WORDLIST_NAME} COPYONLY)
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E create_symlink 
+            ${CMAKE_CURRENT_SOURCE_DIR}/data/${WORDLIST_NAME}
+            ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/${WORDLIST_NAME}
+    )
 endforeach()
 
 # Add uninstall target
@@ -332,11 +337,14 @@ set(TEST_SOURCES
     test/test_mnemonic.c
     test/test_wallet.c
     test/test_parser.c
+    test/test_memory.c
     test/unity.c
     src/mnemonic.c
     src/wallet.c
     src/seed_parser.c
     src/sha3.c
+    src/memory_pool.c
+    src/logger.c
 )
 
 # Add test executable
@@ -364,4 +372,5 @@ add_custom_command(
 add_test(NAME all_tests COMMAND ceed_parser_tests)
 add_test(NAME mnemonic_tests COMMAND ceed_parser_tests mnemonic)
 add_test(NAME wallet_tests COMMAND ceed_parser_tests wallet)
-add_test(NAME parser_tests COMMAND ceed_parser_tests parser) 
+add_test(NAME parser_tests COMMAND ceed_parser_tests parser)
+add_test(NAME memory_tests COMMAND ceed_parser_tests memory) 

@@ -22,9 +22,10 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "mnemonic.h"
-#include "seed_parser.h"
-#include "wallet.h"
+// Include our own headers
+#include "../include/mnemonic.h"
+#include "../include/seed_parser.h"
+#include "../include/wallet.h"
 
 /**
  * @brief Reference to global debug flag defined in main.c
@@ -146,6 +147,7 @@ typedef struct {
   /* Control flags */
   volatile bool running;
   volatile bool graceful_shutdown;
+  bool initialized;
 } SeedParser;
 
 /**
@@ -164,7 +166,7 @@ static const size_t DEFAULT_EXCLUDED_WORDS_COUNT =
     sizeof(DEFAULT_EXCLUDED_WORDS) / sizeof(DEFAULT_EXCLUDED_WORDS[0]);
 
 /**
- * @brief Add this near the top of the file, with other globals
+ * @brief Global mnemonic context
  */
 static struct MnemonicContext *g_mnemonic_ctx = NULL;
 
@@ -397,7 +399,9 @@ static bool db_phrase_exists(DBController *db, const char *phrase) {
  * @brief Update parser statistics
  */
 static void update_stats(SeedParser *parser, const char *key, size_t value) {
-  DEBUG_PRINT("Updating stat: %s += %zu", key, value);
+  if (g_debug_enabled) {
+    fprintf(stderr, "Updating stat: %s += %zu\n", key, value);
+  }
 
   pthread_mutex_lock(&parser->stats_lock);
   if (strcmp(key, "files_processed") == 0) {
@@ -408,8 +412,14 @@ static void update_stats(SeedParser *parser, const char *key, size_t value) {
     parser->stats.lines_processed += value;
   } else if (strcmp(key, "bytes_processed") == 0) {
     parser->stats.bytes_processed += value;
-  } else if (strcmp(key, "phrases_found") == 0) {
+  } else if (strcmp(key, "bip39_phrases") == 0) {
+    parser->stats.bip39_phrases_found += value;
     parser->stats.phrases_found += value;
+  } else if (strcmp(key, "monero_phrases") == 0) {
+    parser->stats.monero_phrases_found += value;
+    parser->stats.phrases_found += value;
+  } else if (strcmp(key, "eth_keys") == 0) {
+    parser->stats.eth_keys_found += value;
   } else if (strcmp(key, "errors") == 0) {
     parser->stats.errors += value;
   }
@@ -480,39 +490,51 @@ static bool should_skip_file(const char *filename) {
  */
 static void process_mnemonic(SeedParser *parser, const char *mnemonic,
                              const char *source_file) {
-  DEBUG_PRINT("Validating mnemonic: %s", mnemonic);
+  if (g_debug_enabled) {
+    fprintf(stderr, "Validating mnemonic: %s\n", mnemonic);
+  }
 
   MnemonicType type;
   MnemonicLanguage language;
 
   /* Validate the mnemonic */
   if (!mnemonic_validate(parser->mnemonic_ctx, mnemonic, &type, &language)) {
-    DEBUG_PRINT_MSG("Mnemonic validation FAILED");
+    if (g_debug_enabled) {
+      fprintf(stderr, "Mnemonic validation FAILED\n");
+    }
     return;
   }
 
-  DEBUG_PRINT_MSG("Mnemonic validation PASSED");
+  if (g_debug_enabled) {
+    fprintf(stderr, "Mnemonic validation PASSED\n");
+  }
 
   /* Check if already in database to avoid duplicates */
   if (db_phrase_exists(parser->db, mnemonic)) {
-    DEBUG_PRINT_MSG("Mnemonic already exists in database");
+    if (g_debug_enabled) {
+      fprintf(stderr, "Mnemonic already exists in database\n");
+    }
     return;
   }
 
   /* Add to database */
   if (db_add_phrase(parser->db, mnemonic, type, language) != 0) {
-    DEBUG_PRINT_MSG("Error adding mnemonic to database");
+    if (g_debug_enabled) {
+      fprintf(stderr, "Error adding mnemonic to database\n");
+    }
     update_stats(parser, "errors", 1);
     return;
   }
 
-  DEBUG_PRINT_MSG("Successfully added mnemonic to database");
+  if (g_debug_enabled) {
+    fprintf(stderr, "Successfully added mnemonic to database\n");
+  }
 
   /* Update statistics based on type */
   if (type == MNEMONIC_BIP39) {
-    update_stats(parser, "phrases_found", 1);
+    update_stats(parser, "bip39_phrases", 1);
   } else if (type == MNEMONIC_MONERO) {
-    update_stats(parser, "monero_phrases_found", 1);
+    update_stats(parser, "monero_phrases", 1);
   }
 
   /* Current timestamp for logs */
@@ -1131,95 +1153,131 @@ void seed_parser_set_mnemonic_ctx(struct MnemonicContext *ctx) {
 }
 
 /**
- * @brief Initialize the seed parser with the given configuration options
+ * @brief Initialize the seed parser with the given configuration
  */
 bool seed_parser_init(const SeedParserConfig *config) {
+  // Validate input configuration
   if (!config) {
-    fprintf(stderr, "Error: No configuration provided\n");
+    fprintf(stderr, "ERROR: No configuration provided to seed_parser_init\n");
     return false;
   }
 
-  /* Initialize the parser state */
-  memset(&g_parser, 0, sizeof(SeedParser));
-  g_parser.config = config;
+  // Debug output
+  fprintf(stderr, "DEBUG INIT: Config pointer is %p\n", (void *)config);
 
-  /* Set up excluded words if not provided */
-  if (config->exwords == NULL) {
-    /* Use the default excluded words */
-    SeedParserConfig *mutable_config = (SeedParserConfig *)config;
-    mutable_config->exwords = DEFAULT_EXCLUDED_WORDS;
-    mutable_config->max_exwords = DEFAULT_EXCLUDED_WORDS_COUNT;
+  // Reset the parser state
+  memset(&g_parser, 0, sizeof(SeedParser));
+  g_parser.initialized = false;
+
+  // Check for valid wordlist directory - critical for operation
+  if (!config->wordlist_dir) {
+    fprintf(stderr, "ERROR: No wordlist directory provided in configuration\n");
+    return false;
   }
 
-  /* Use the global mnemonic context if provided, otherwise create a new one */
-  if (g_mnemonic_ctx) {
-    g_parser.mnemonic_ctx = g_mnemonic_ctx;
-  } else {
-    /* Initialize the mnemonic subsystem */
-    g_parser.mnemonic_ctx = mnemonic_init(config->wordlist_dir);
-    if (!g_parser.mnemonic_ctx) {
-      fprintf(stderr, "Error: Failed to initialize mnemonic subsystem\n");
+  fprintf(stderr, "DEBUG INIT: Wordlist dir pointer is %p, content: '%s'\n",
+          (void *)config->wordlist_dir, config->wordlist_dir);
+
+  // Initialize the mnemonic context with the wordlist directory
+  g_parser.mnemonic_ctx = mnemonic_init(config->wordlist_dir);
+  if (!g_parser.mnemonic_ctx) {
+    fprintf(stderr, "ERROR: Failed to initialize mnemonic context\n");
+    return false;
+  }
+
+  // Create a deep copy of the configuration
+  SeedParserConfig *config_copy =
+      (SeedParserConfig *)malloc(sizeof(SeedParserConfig));
+  if (!config_copy) {
+    fprintf(stderr,
+            "ERROR: Failed to allocate memory for configuration copy\n");
+    mnemonic_cleanup(g_parser.mnemonic_ctx);
+    g_parser.mnemonic_ctx = NULL;
+    return false;
+  }
+
+  // Copy the configuration
+  memcpy(config_copy, config, sizeof(SeedParserConfig));
+
+  // Make deep copies of any string fields
+  if (config->wordlist_dir) {
+    config_copy->wordlist_dir = strdup(config->wordlist_dir);
+    if (!config_copy->wordlist_dir) {
+      fprintf(stderr, "ERROR: Failed to duplicate wordlist directory\n");
+      free(config_copy);
+      mnemonic_cleanup(g_parser.mnemonic_ctx);
+      g_parser.mnemonic_ctx = NULL;
       return false;
     }
   }
 
-  /* Initialize thread management */
-  pthread_mutex_init(&g_parser.stats_lock, NULL);
-  pthread_mutex_init(&g_parser.queue_lock, NULL);
-  pthread_cond_init(&g_parser.queue_not_empty, NULL);
-  pthread_cond_init(&g_parser.queue_not_full, NULL);
-
-  /* Determine the number of threads */
-  g_parser.num_threads = config->threads;
-  if (g_parser.num_threads <= 0) {
-    g_parser.num_threads = sysconf(_SC_NPROCESSORS_ONLN);
-    if (g_parser.num_threads <= 0) {
-      g_parser.num_threads = 4; /* Fallback */
+  if (config->source_dir) {
+    config_copy->source_dir = strdup(config->source_dir);
+    if (!config_copy->source_dir) {
+      free((void *)config_copy->wordlist_dir);
+      free(config_copy);
+      mnemonic_cleanup(g_parser.mnemonic_ctx);
+      g_parser.mnemonic_ctx = NULL;
+      return false;
     }
   }
 
-  /* Clamp thread count to a reasonable range */
-  if (g_parser.num_threads < 1) {
-    g_parser.num_threads = 1;
-  } else if (g_parser.num_threads > 64) {
-    g_parser.num_threads = 64;
+  if (config->log_dir) {
+    config_copy->log_dir = strdup(config->log_dir);
+    if (!config_copy->log_dir) {
+      free((void *)config_copy->source_dir);
+      free((void *)config_copy->wordlist_dir);
+      free(config_copy);
+      mnemonic_cleanup(g_parser.mnemonic_ctx);
+      g_parser.mnemonic_ctx = NULL;
+      return false;
+    }
   }
 
-  /* Allocate thread array */
-  g_parser.threads =
-      (pthread_t *)malloc(g_parser.num_threads * sizeof(pthread_t));
-  if (!g_parser.threads) {
-    seed_parser_cleanup();
-    return false;
+  if (config->db_path) {
+    config_copy->db_path = strdup(config->db_path);
+    if (!config_copy->db_path) {
+      free((void *)config_copy->log_dir);
+      free((void *)config_copy->source_dir);
+      free((void *)config_copy->wordlist_dir);
+      free(config_copy);
+      mnemonic_cleanup(g_parser.mnemonic_ctx);
+      g_parser.mnemonic_ctx = NULL;
+      return false;
+    }
   }
 
-  /* Allocate task queue */
-  g_parser.queue_size = g_parser.num_threads * 100; /* 100 tasks per thread */
-  g_parser.task_queue = (Task *)malloc(g_parser.queue_size * sizeof(Task));
-  if (!g_parser.task_queue) {
-    seed_parser_cleanup();
-    return false;
-  }
+  // Store the configuration copy in the parser state
+  g_parser.config = config_copy;
 
-  /* Initialize database */
-  g_parser.db = db_init(config);
+  // Initialize database
+  g_parser.db = db_init(config_copy);
   if (!g_parser.db) {
-    seed_parser_cleanup();
+    fprintf(stderr, "ERROR: Failed to initialize database\n");
+    free((void *)config_copy->db_path);
+    free((void *)config_copy->log_dir);
+    free((void *)config_copy->source_dir);
+    free((void *)config_copy->wordlist_dir);
+    free(config_copy);
+    mnemonic_cleanup(g_parser.mnemonic_ctx);
+    g_parser.mnemonic_ctx = NULL;
     return false;
   }
 
-  /* Open log files */
-  if (open_log_files(&g_parser) != 0) {
-    seed_parser_cleanup();
-    return false;
-  }
+  // Initialize mutex for stats
+  pthread_mutex_init(&g_parser.stats_lock, NULL);
 
-  /* Initialize wallet module */
-  if (wallet_init() != 0) {
-    seed_parser_cleanup();
-    return false;
-  }
+  // Initialize mutex for queue
+  pthread_mutex_init(&g_parser.queue_lock, NULL);
 
+  // Initialize condition variables
+  pthread_cond_init(&g_parser.queue_not_empty, NULL);
+  pthread_cond_init(&g_parser.queue_not_full, NULL);
+
+  // Set the initialized flag to true
+  g_parser.initialized = true;
+
+  fprintf(stderr, "DEBUG INIT: Seed parser initialized successfully\n");
   return true;
 }
 
@@ -1286,37 +1344,42 @@ int seed_parser_start(void) {
  * @brief Clean up resources used by the seed parser
  */
 void seed_parser_cleanup(void) {
-  /* Close log files */
-  close_log_files(&g_parser);
-
-  /* Clean up database */
-  if (g_parser.db) {
-    db_cleanup(g_parser.db);
-    g_parser.db = NULL;
+  // Check if already cleaned up to prevent double-free
+  if (!g_parser.initialized) {
+    // Already cleaned up or never initialized
+    return;
   }
 
-  /* Clean up mnemonic module only if it's not the global context */
-  if (g_parser.mnemonic_ctx && g_parser.mnemonic_ctx != g_mnemonic_ctx) {
+  if (g_debug_enabled) {
+    fprintf(stderr, "Info: Cleaning up seed parser resources\n");
+  }
+
+  // First clean up the mnemonic context
+  if (g_parser.mnemonic_ctx) {
     mnemonic_cleanup(g_parser.mnemonic_ctx);
     g_parser.mnemonic_ctx = NULL;
   }
 
-  /* Clean up wallet module */
-  wallet_cleanup();
+  // Free the configuration structure if it exists
+  if (g_parser.config) {
+    // Free the wordlist_dir if it exists
+    // Note: The wordlist_dir in the config is a separate copy from the one in
+    // mnemonic_ctx
+    if (g_parser.config->wordlist_dir) {
+      free((void *)g_parser.config->wordlist_dir);
+    }
 
-  /* Free thread array */
-  free(g_parser.threads);
-  g_parser.threads = NULL;
+    // Cast to void* to avoid const qualifier warning
+    free((void *)g_parser.config);
+    g_parser.config = NULL;
+  }
 
-  /* Free task queue */
-  free(g_parser.task_queue);
-  g_parser.task_queue = NULL;
+  // Mark as not initialized
+  g_parser.initialized = false;
 
-  /* Destroy synchronization objects */
-  pthread_mutex_destroy(&g_parser.stats_lock);
-  pthread_mutex_destroy(&g_parser.queue_lock);
-  pthread_cond_destroy(&g_parser.queue_not_empty);
-  pthread_cond_destroy(&g_parser.queue_not_full);
+  if (g_debug_enabled) {
+    fprintf(stderr, "Info: Seed parser cleanup complete\n");
+  }
 }
 
 /**
@@ -1337,11 +1400,47 @@ void seed_parser_get_stats(SeedParserStats *stats) {
  */
 bool seed_parser_validate_mnemonic(const char *mnemonic, MnemonicType *type,
                                    MnemonicLanguage *language) {
-  if (!g_parser.mnemonic_ctx || !mnemonic) {
+  if (!mnemonic || !g_parser.mnemonic_ctx) {
     return false;
   }
 
-  return mnemonic_validate(g_parser.mnemonic_ctx, mnemonic, type, language);
+  if (g_debug_enabled) {
+    fprintf(stderr, "Validating mnemonic: %s\n", mnemonic);
+  }
+
+  bool valid =
+      mnemonic_validate(g_parser.mnemonic_ctx, mnemonic, type, language);
+  if (!valid) {
+    if (g_debug_enabled) {
+      fprintf(stderr, "Mnemonic validation FAILED\n");
+    }
+    return false;
+  }
+
+  if (g_debug_enabled) {
+    fprintf(stderr, "Mnemonic validation PASSED\n");
+  }
+
+  // Check if the mnemonic already exists in the database
+  if (db_phrase_exists(g_parser.db, mnemonic)) {
+    if (g_debug_enabled) {
+      fprintf(stderr, "Mnemonic already exists in database\n");
+    }
+    return true;
+  }
+
+  // Add the mnemonic to the database
+  if (db_add_phrase(g_parser.db, mnemonic, *type, *language) != 0) {
+    if (g_debug_enabled) {
+      fprintf(stderr, "Error adding mnemonic to database\n");
+    }
+    return false;
+  }
+
+  if (g_debug_enabled) {
+    fprintf(stderr, "Successfully added mnemonic to database\n");
+  }
+  return true;
 }
 
 /**

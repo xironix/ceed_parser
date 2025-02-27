@@ -1,4 +1,10 @@
 {
   "workbench.experimental.cloudChanges.autoStore": "onShutdown",
-  "git.autofetch": "all"
+  "git.autofetch": "all",
+  "editor.rulers": [
+    {
+      "column": 100,
+      "comment": "clang-format"
+    }
+  ]
 }

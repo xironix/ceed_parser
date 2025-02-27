@@ -1,6 +1,7 @@
 # Build artifacts
 /build/
 /bin/
+/adhoc_tests/
 *.o
 *.obj
 *.so
@@ -22,9 +23,16 @@ CTestTestfile.cmake
 Makefile
 *.cmake
 !cmake_uninstall.cmake.in
+Testing/
+DartConfiguration.tcl
 
 # IDE and editor files
-.vscode/
+# More specific .vscode ignores - allow settings.json
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -112,11 +120,38 @@ wallets/
 benchmark_results/
 *.prof
 gmon.out
-perf.data
+perf.data*
 perf.data.old
+callgrind.out*
+cachegrind.out*
 
 # Temporary parsing files
 *.tmp
 *.parse
+
+# Static analysis artifacts
+.scannerwork/
+cppcheck-report.xml
+clang-tidy-report.txt
+coverage.info
+coverage/
+coverage-report/
+
+# CI artifacts
+.github/workflows/.cache/
+
+# Sanitizer outputs
+*.asan.log
+*.tsan.log
+*.ubsan.log
+*.lsan.log
+*.msan.log
+
+# Clang format backup files
+*.clang-format.bak
+
+# Valgrind output files
+valgrind-*.xml
+memcheck-*.xml
 
 # Add any project-specific files that should be ignored 

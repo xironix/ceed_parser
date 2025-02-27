@@ -103,6 +103,14 @@ typedef struct {
 void seed_parser_set_mnemonic_ctx(struct MnemonicContext *ctx);
 
 /**
+ * @brief Initialize the seed parser configuration with default values
+ * 
+ * @param config Pointer to the configuration structure to initialize
+ * @return int 0 on success, non-zero on failure
+ */
+int seed_parser_config_init(SeedParserConfig *config);
+
+/**
  * @brief Initialize the seed parser with the given configuration options
  * 
  * @param config Pointer to the configuration options

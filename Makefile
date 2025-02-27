@@ -57,5 +57,18 @@ $(BENCH_TARGET): $(COMMON_OBJECTS) $(BENCH_OBJECTS)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	rm -f *.o
+	rm -f test_*
+	rm -f debug_*
+	rm -f *.out
+	rm -f *.exe
+	rm -f *.log
+	rm -f *.tmp
+	rm -f *.parse
+	rm -f *.prof
+	rm -f gmon.out
+	rm -f perf.data*
+	rm -f vgcore.*
+	rm -f *.dSYM
 
 -include $(DEPS) 

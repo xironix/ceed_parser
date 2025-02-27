@@ -31,6 +31,9 @@
 #include "../include/thread_pool.h"
 #include "../include/wallet.h"
 
+// Define global debug flag that's referenced by other modules
+bool g_debug_enabled = false;
+
 // Define MAX macro if not already defined
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -1297,4 +1300,3 @@ static benchmark_result_t __attribute__((unused)) bench_parser(void) {
 
   return result;
 }
-
